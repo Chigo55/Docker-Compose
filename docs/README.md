@@ -37,7 +37,7 @@ mssql-farm/
 ├─ docs/
 │  ├─ README.md             이 문서
 │  └─ ROADMAP.md            추가하면 좋을 기능 로드맵 (우선순위/근거)
-├─ .claude/                 설계 문서 (adr/ · RULES.md · CONVENTIONS.md)
+├─ .claude/                 설계 문서 (adr/ · rules/ · CONVENTIONS.md)
 ├─ .gitignore
 └─ CLAUDE.md                AI 어시스턴트(Claude Code)용 저장소 가이드
 ```

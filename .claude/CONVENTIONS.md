@@ -1,7 +1,7 @@
 # 코드 규약 (CONVENTIONS)
 
 기존 스크립트와 **일관된** 코드를 쓰기 위한 규약이다. 여기 적힌 형태를 그대로 따르면
-리뷰 없이도 저장소의 결에 맞는다. 배경은 [ADR](adr/README.md), 안전 가드레일은 [RULES](RULES.md).
+리뷰 없이도 저장소의 결에 맞는다. 배경은 [ADR](adr/README.md), 안전 가드레일은 [rules](rules/README.md).
 
 ## 1. 파일 인코딩
 

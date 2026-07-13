@@ -25,7 +25,7 @@ compose/
   .env              모든 설정값 (Git 제외)
   .env.example      .env 견본 (비밀번호 비움)
 docs/README.md      사용자 문서
-.claude/            설계 문서 (adr/, RULES.md, CONVENTIONS.md)
+.claude/            설계 문서 (adr/, rules/, CONVENTIONS.md)
 CLAUDE.md           이 파일
 ```
 
