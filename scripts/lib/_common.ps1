@@ -292,7 +292,8 @@ function Invoke-Sql {
         [Parameter(Mandatory)][string]$Container,   # 대상 컨테이너 이름
         [Parameter(Mandatory)][string]$Query,       # 실행할 T-SQL 문장
         [string]$Database = 'master',               # 접속할 DB (기본: master)
-        [int]$LoginTimeout = 10                      # 로그인 대기 시간(초)
+        [int]$LoginTimeout = 10,                     # 로그인 대기 시간(초)
+        [string]$Separator                           # 값을 주면 컬럼을 이 문자로 구분(-s). 여러 컬럼 결과 파싱용.
     )
 
     $password = (Read-DotEnv)['MSSQL_SA_PASSWORD']
@@ -303,11 +304,16 @@ function Invoke-Sql {
     #  -S localhost -U sa    : 자기 자신에게 sa 계정으로 접속
     #  -b : 오류가 나면 종료 코드를 0 이 아니게 (실패를 감지하려고)
     #  -h -1 / -W : 머리글 없이, 여분 공백 없이 깔끔하게 출력
+    #  -s "<구분자>" : (선택) 컬럼 사이에 이 문자를 넣어, 여러 컬럼을 나눠 읽기 쉽게 함
     #  -Q : 이 쿼리를 실행하고 종료
+    #  ※ -Q 는 반드시 맨 뒤여야 하므로, -s 는 그 앞쪽에 끼워 넣습니다.
+    $sqlArgs = @('-S', 'localhost', '-U', 'sa', '-d', $Database,
+                 '-l', "$LoginTimeout", '-b', '-h', '-1', '-W')
+    if ($Separator) { $sqlArgs += @('-s', $Separator) }
+    $sqlArgs += @('-Q', $Query)
+
     $dockerArgs = @('exec', '-e', "SQLCMDPASSWORD=$password", $Container) +
-                  $sqlcmd +
-                  @('-S', 'localhost', '-U', 'sa', '-d', $Database,
-                    '-l', "$LoginTimeout", '-b', '-h', '-1', '-W', '-Q', $Query)
+                  $sqlcmd + $sqlArgs
 
     # 2>&1 : 오류 출력도 일반 출력과 함께 받아, 실패 원인을 확인할 수 있게 합니다.
     $output = & docker @dockerArgs 2>&1

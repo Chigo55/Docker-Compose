@@ -20,7 +20,10 @@ mssql-farm/
 │  ├─ restart.ps1           재시작
 │  ├─ status.ps1            상태 확인
 │  ├─ logs.ps1              로그 조회
+│  ├─ query.ps1             여러 인스턴스에 T-SQL 일괄 실행
 │  ├─ backup.ps1            전 인스턴스 DB 백업
+│  ├─ restore.ps1           백업(.bak) 복원 (backup 의 짝)
+│  ├─ doctor.ps1            기동 전 .env/compose 규약 점검
 │  └─ down.ps1              컨테이너/네트워크 제거 (데이터 보존)
 ├─ compose/
 │  ├─ compose.yml           컨테이너 "구조" 정의 (설정값 없음)
@@ -168,15 +171,7 @@ Copy-Item .\compose\.env.example .\compose\.env
 
 **데이터 파일(`.mdf`)을 직접 복사하지 마세요.** 실행 중인 인스턴스의 파일을 복사하면 손상된 사본이 나옵니다. 이 스크립트가 안전한 이유는 SQL Server 엔진에게 백업을 시키기 때문입니다.
 
-**복원**은 `.bak`을 컨테이너에 넣고 `RESTORE DATABASE`를 실행합니다.
-
-```powershell
-docker cp "C:\docker\_backup\Db2019C\MyDb_20260101_020000.bak" Db2019C:/var/opt/mssql/backup/restore.bak
-docker exec -e "SQLCMDPASSWORD=<sa 비밀번호>" Db2019C /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -b -Q `
-  "RESTORE DATABASE [MyDb] FROM DISK = N'/var/opt/mssql/backup/restore.bak' WITH REPLACE, RECOVERY;"
-```
-
-> 2022 인스턴스는 sqlcmd 경로가 `/opt/mssql-tools18/bin/sqlcmd`이고 `-C` 옵션이 필요합니다.
+**복원**은 아래 `restore.ps1`을 쓰세요.
 
 **야간 자동 백업** — 작업 스케줄러에 등록합니다. (경로는 실제 저장소 위치에 맞게 바꾸세요.)
 
@@ -184,6 +179,50 @@ docker exec -e "SQLCMDPASSWORD=<sa 비밀번호>" Db2019C /opt/mssql-tools/bin/s
 schtasks /create /tn "MSSQL Farm Backup" /sc daily /st 02:00 /rl highest `
   /tr "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\path\to\mssql-farm\scripts\backup.ps1 -Verify"
 ```
+
+### restore.ps1 — 복원
+
+`backup.ps1`의 짝입니다. 파일을 직접 붙이지 않고 `RESTORE DATABASE`를 실행합니다. 번거로운 부분을 자동화합니다.
+
+- **백업 파일 자동 선택**: `<BACKUP_ROOT>\<컨테이너명>\<DB>_*.bak` 중 **가장 최신** 파일
+- **논리 파일 자동 이동**: `RESTORE FILELISTONLY`로 백업 안의 논리 파일명을 읽어 `WITH MOVE`를 자동 구성 → `/var/opt/mssql/data`로 배치
+- **버전 자동 판별**: 2019/2022 sqlcmd 경로를 컨테이너에서 실제 확인 (`_common.ps1` 재사용)
+- **활성 연결 정리**: 기존 DB가 있으면 `SINGLE_USER`로 연결을 끊고 `WITH REPLACE`로 덮어씀
+
+```powershell
+.\scripts\restore.ps1 -Service db2019c -Database MyDb          # 해당 인스턴스의 최신 백업 복원
+.\scripts\restore.ps1 -Database MyDb                            # 전체 인스턴스에 각자의 최신 백업 복원
+.\scripts\restore.ps1 -Service db2022b -BackupFile "C:\docker\_backup\Db2022B\MyDb_20260101_020000.bak"
+.\scripts\restore.ps1 -Service db2019c -Database MyDb -NoRecovery  # 이후 로그 백업을 이어 복원 (RESTORING 유지)
+.\scripts\restore.ps1 -Service db2019c -Database MyDb -Force        # 확인 프롬프트 없이
+```
+
+복원은 대상 DB를 **덮어쓰는 파괴적 작업**이므로 `-Force`가 없으면 먼저 확인합니다. 한 인스턴스가 실패해도 나머지는 계속 진행하고, 실패가 있으면 종료 코드 1을 반환합니다. `-BackupFile`은 파일 하나를 뜻하므로 `-Service`로 인스턴스를 하나만 지정했을 때만 씁니다.
+
+> 자동 복원은 데이터(`D`)·로그(`L`) 파일만 처리합니다. FILESTREAM 등 다른 유형이 있으면 중단하고 수동 복원을 안내합니다.
+
+### query.ps1 — 여러 인스턴스에 T-SQL 일괄 실행
+
+인스턴스가 여러 개인 farm에서 "전부에 같은 질의"(버전 확인, DB 목록, 설정 점검)를 한 번에 실행합니다. `_common.ps1`의 `Invoke-Sql`을 그대로 씁니다.
+
+```powershell
+.\scripts\query.ps1 "SELECT @@VERSION"                                    # 전체 인스턴스 버전
+.\scripts\query.ps1 "SELECT name FROM sys.databases ORDER BY name" -Service db2019c
+.\scripts\query.ps1 -File .\scripts\sql\health.sql                        # 파일에서 읽어 실행
+.\scripts\query.ps1 "SELECT COUNT(*) FROM dbo.Orders" -Database MyDb -Service db2022a,db2022b
+```
+
+읽기 쿼리에 권장합니다. 데이터를 바꾸는 문장(`UPDATE`/`DROP` 등)도 실행되므로, 전체 대상으로 파괴적 쿼리를 돌릴 때는 `-Service`로 범위를 좁히세요. 꺼진 인스턴스는 `DOWN`으로 표시되고, 하나라도 성공하지 못하면 종료 코드 1을 반환합니다.
+
+### doctor.ps1 — 기동 전 규약 점검
+
+`compose/.env`와 `compose.yml`의 규약 위반을 **올리기 전에** 찾아냅니다. 한 곳이라도 어긋나면 기동이 조용히 실패하기 때문입니다.
+
+```powershell
+.\scripts\doctor.ps1
+```
+
+점검 항목: 필수 전역 키 · SA 비밀번호 정책(8자 이상 + 3종) · 인스턴스 3종 세트(`_NAME`/`_PORT`/`_DIR`) · 포트 중복/범위 · 데이터 폴더(`_DIR`) 중복 · **`.env` 접두사 ↔ `compose.yml` 서비스 키 일치(양방향)** · `DATA_ROOT` 접근 · 값 옆 인라인 주석/역슬래시 경로 · (Docker 실행 중이면) `docker compose config` 렌더링 성공. 결과는 `[OK]/[경고]/[오류]`로 보여 주고, 오류가 있으면 종료 코드 1을 반환합니다(경고만 있으면 0). 처음 기동 전이나 `.env`를 크게 바꾼 뒤 실행하면 좋습니다.
 
 ---
 
