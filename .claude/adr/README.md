@@ -38,3 +38,4 @@
 | [0011](0011-batch-continue-on-error.md) | 배치는 continue-on-error + 요약 + `exit 1` | 스케줄러가 실패 감지 |
 | [0012](0012-utf8-bom-for-powershell.md) | `.ps1`은 UTF-8 BOM, docker 파일은 BOM 없음 | PS 5.1 한글 인코딩 사고 방지 |
 | [0013](0013-plaintext-password-gitignored.md) | 평문 비밀번호 `.env`는 Git 제외, 견본만 공유 | `.env.example` 커밋 |
+| [0014](0014-internal-dev-loop.md) | 내부 개발 루프(check/test)는 선택 의존성 | Pester/PSScriptAnalyzer 없으면 건너뜀, `-Install` |

@@ -68,6 +68,8 @@
 - 파괴적 작업은 영향 목록을 Yellow 로 출력 → `-Force` 없으면 `계속하시겠습니까? (y/N)` 프롬프트 →
   거부 시 `return`. (`down.ps1`/`restore.ps1` 참조)
 - 코드 스타일 전반은 [CONVENTIONS.md](CONVENTIONS.md)를 따른다.
+- **편집 후 커밋 전 `.\scripts\check.ps1 -Test`로 검증**한다(린트 + doctor + 단위 테스트).
+  순수 로직을 추가/수정했다면 `tests/`에 테스트도 함께 쓴다([ADR-0014](adr/0014-internal-dev-loop.md), [CONVENTIONS.md](CONVENTIONS.md) §13).
 
 ## 9. compose 직접 실행
 
