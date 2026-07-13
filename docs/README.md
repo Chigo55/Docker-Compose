@@ -14,7 +14,8 @@ SQL Server 2019 / 2022 인스턴스 여러 개를 Docker Compose로 운영하기
 mssql-farm/
 ├─ scripts/                  관리 스크립트 (여기서 실행)
 │  ├─ lib/
-│  │  └─ _common.ps1         공통 함수 모음 (직접 실행하지 않음)
+│  │  ├─ _common.ps1         공통 함수 모음 (ops, 직접 실행하지 않음)
+│  │  └─ _devtools.ps1       개발 루프 전용 헬퍼 (직접 실행하지 않음)
 │  ├─ start.ps1              기동 (데이터 폴더 자동 생성)
 │  ├─ stop.ps1              정지 (컨테이너 유지)
 │  ├─ restart.ps1           재시작
@@ -24,7 +25,11 @@ mssql-farm/
 │  ├─ backup.ps1            전 인스턴스 DB 백업
 │  ├─ restore.ps1           백업(.bak) 복원 (backup 의 짝)
 │  ├─ doctor.ps1            기동 전 .env/compose 규약 점검
-│  └─ down.ps1              컨테이너/네트워크 제거 (데이터 보존)
+│  ├─ down.ps1              컨테이너/네트워크 제거 (데이터 보존)
+│  ├─ check.ps1             [개발] 린트 + doctor (+ -Test / -Watch)
+│  └─ test.ps1              [개발] Pester 단위 테스트 실행
+├─ tests/
+│  └─ _common.Tests.ps1     [개발] _common.ps1 자동 발견/파싱 단위 테스트
 ├─ compose/
 │  ├─ compose.yml           컨테이너 "구조" 정의 (설정값 없음)
 │  ├─ .env                  모든 "설정값" — 여기만 고치면 됩니다 (Git 제외)
@@ -32,6 +37,7 @@ mssql-farm/
 ├─ docs/
 │  ├─ README.md             이 문서
 │  └─ ROADMAP.md            추가하면 좋을 기능 로드맵 (우선순위/근거)
+├─ .claude/                 설계 문서 (adr/ · RULES.md · CONVENTIONS.md)
 ├─ .gitignore
 └─ CLAUDE.md                AI 어시스턴트(Claude Code)용 저장소 가이드
 ```
@@ -227,6 +233,28 @@ schtasks /create /tn "MSSQL Farm Backup" /sc daily /st 02:00 /rl highest `
 
 ---
 
+## 내부 개발 루프 (저장소를 고칠 때)
+
+운영이 아니라 **스크립트나 `compose` 설정을 편집할 때** 쓰는 로컬 검증 루프입니다. 실사용 운영에는 필요 없습니다.
+
+```powershell
+.\scripts\check.ps1                 # 린트(PSScriptAnalyzer) + doctor(+compose 렌더링) 1회
+.\scripts\check.ps1 -Test           # 위 + Pester 단위 테스트까지
+.\scripts\check.ps1 -Watch -Test    # 파일 저장 때마다 전체 루프 자동 재실행 (편집→즉시 피드백)
+.\scripts\test.ps1                  # Pester 단위 테스트만 (tests\ 폴더)
+.\scripts\check.ps1 -Install        # 없는 개발 모듈(PSScriptAnalyzer/Pester)을 CurrentUser 로 설치
+```
+
+- 오류가 하나라도 있으면 **종료 코드 1**을 반환합니다(CI/자동화 감지용).
+- **개발 모듈은 선택 의존성**입니다. 없으면 해당 단계만 건너뛰고(노란 안내), `-Install`로 부트스트랩합니다.
+  테스트는 **Pester 5 이상**이 필요합니다(Windows 기본 3.4.0 은 문법이 달라 쓰지 않음).
+- 린트는 이 저장소 관례와 충돌하는 규칙(`PSAvoidUsingWriteHost`/`PSUseSingularNouns`/`PSReviewUnusedParameter`)을 제외합니다.
+- 단위 테스트는 Docker가 필요 없는 순수 로직(`Read-DotEnv` 파싱, `Get-Instances` 발견, `Resolve-Services` 검증)을 대상으로 합니다.
+
+> **설계 문서** — 왜 이렇게 만들었는지(ADR)·편집 규칙(RULES)·코드 규약(CONVENTIONS)은 `.claude/` 폴더에 정리되어 있습니다. 스크립트를 새로 추가하거나 고치기 전에 참고하세요.
+
+---
+
 ## `compose/.env` 레퍼런스
 
 | 그룹 | 변수 | 설명 |
@@ -316,7 +344,8 @@ docker exec Db2019C ls /opt/mssql-tools*/bin/
 ## 향후 계획
 
 추가하면 좋을 기능(healthy 대기, DB 인벤토리, 대화형 셸, 차등/로그 백업, 롤링 업데이트,
-비밀번호 회전, 테스트/CI 등)을 우선순위·근거와 함께 [ROADMAP.md](./ROADMAP.md)에 정리해 두었습니다.
+비밀번호 회전 등)을 우선순위·근거와 함께 [ROADMAP.md](./ROADMAP.md)에 정리해 두었습니다.
+단위 테스트·린트는 위의 [내부 개발 루프](#내부-개발-루프-저장소를-고칠-때)로 이미 갖췄고, 남은 것은 GitHub Actions CI 연결입니다.
 
 ---
 
