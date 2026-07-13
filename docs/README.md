@@ -30,7 +30,8 @@ mssql-farm/
 │  ├─ .env                  모든 "설정값" — 여기만 고치면 됩니다 (Git 제외)
 │  └─ .env.example          .env 의 견본 (비밀번호 비움, 팀 공유용)
 ├─ docs/
-│  └─ README.md             이 문서
+│  ├─ README.md             이 문서
+│  └─ ROADMAP.md            추가하면 좋을 기능 로드맵 (우선순위/근거)
 ├─ .gitignore
 └─ CLAUDE.md                AI 어시스턴트(Claude Code)용 저장소 가이드
 ```
@@ -309,6 +310,13 @@ docker exec Db2019C ls /opt/mssql-tools*/bin/
 ```
 
 **포트 충돌** — `netstat -ano | findstr :40000`으로 점유 프로세스를 확인하고, `compose/.env`에서 포트를 바꾼 뒤 `.\scripts\restart.ps1 -Recreate`를 실행하세요.
+
+---
+
+## 향후 계획
+
+추가하면 좋을 기능(healthy 대기, DB 인벤토리, 대화형 셸, 차등/로그 백업, 롤링 업데이트,
+비밀번호 회전, 테스트/CI 등)을 우선순위·근거와 함께 [ROADMAP.md](./ROADMAP.md)에 정리해 두었습니다.
 
 ---
 
