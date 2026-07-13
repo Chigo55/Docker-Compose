@@ -5,21 +5,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 개요
 
 SQL Server 2019/2022 인스턴스 여러 개를 Docker Compose로 운영하는 인프라 템플릿입니다. (아래 예시는 8개)
-빌드/테스트/린트 파이프라인이 없는 **운영(ops) 저장소**이며, 산출물은 PowerShell 관리 스크립트입니다.
+**운영(ops) 저장소**이며, 산출물은 PowerShell 관리 스크립트입니다.
 모든 조작은 Windows + PowerShell 5.1 이상 + Docker Desktop 환경을 전제로 합니다.
+스크립트/설정을 고칠 때 쓰는 **내부 개발 루프**(린트·규약점검·단위테스트)는 선택 도구로 `scripts/check.ps1`·`scripts/test.ps1`에 있습니다(아래 참고). 실사용 운영에는 필요 없습니다.
 
 ## 리포지토리 구조
 
 ```
-scripts/           관리 스크립트 (여기서 실행)
-  lib/_common.ps1  공통 함수 모음 (직접 실행하지 않음)
-  *.ps1            start/stop/restart/status/logs/query/backup/restore/doctor/down
+scripts/            관리 스크립트 (여기서 실행)
+  lib/_common.ps1   공통 함수 모음 (ops, 직접 실행하지 않음)
+  lib/_devtools.ps1 개발 루프 전용 헬퍼 (모듈 확보/파일 감시, 직접 실행하지 않음)
+  *.ps1             start/stop/restart/status/logs/query/backup/restore/doctor/down
+  check.ps1         내부 개발 루프: 린트 + doctor(+compose 렌더링) [+ -Test]
+  test.ps1          Pester 단위 테스트 실행 (Pester 5+ 필요)
+tests/
+  _common.Tests.ps1 _common.ps1 자동 발견/파싱 로직 단위 테스트
 compose/
-  compose.yml      컨테이너 구조 정의 (설정값 없음)
-  .env             모든 설정값 (Git 제외)
-  .env.example     .env 견본 (비밀번호 비움)
-docs/README.md     사용자 문서
-CLAUDE.md          이 파일
+  compose.yml       컨테이너 구조 정의 (설정값 없음)
+  .env              모든 설정값 (Git 제외)
+  .env.example      .env 견본 (비밀번호 비움)
+docs/README.md      사용자 문서
+.claude/            설계 문서 (adr/, RULES.md, CONVENTIONS.md)
+CLAUDE.md           이 파일
 ```
 
 ## 자주 쓰는 명령
@@ -43,6 +50,22 @@ CLAUDE.md          이 파일
 # .env 렌더링 결과 확인 (적용 전 검증) — compose.yml 과 .env 가 compose/ 안에 있으므로 그 폴더에서 실행
 Push-Location .\compose; docker compose config; Pop-Location
 ```
+
+### 내부 개발 루프 (스크립트/설정 편집 시)
+
+운영이 아니라 **이 저장소를 고칠 때** 쓰는 검증 루프입니다. 실패 시 종료 코드 1(자동화 감지용).
+
+```powershell
+.\scripts\check.ps1                 # 린트(PSScriptAnalyzer) + doctor(+compose 렌더링) 1회
+.\scripts\check.ps1 -Test           # 위 + Pester 단위 테스트까지
+.\scripts\check.ps1 -Watch -Test    # 파일 저장 때마다 전체 루프 자동 재실행 (편집→즉시 피드백)
+.\scripts\test.ps1                  # Pester 단위 테스트만
+.\scripts\check.ps1 -Install        # 없는 개발 모듈(PSScriptAnalyzer/Pester)을 CurrentUser 로 설치
+```
+
+- 개발 모듈은 **선택 의존성**입니다. 없으면 해당 단계만 건너뛰며(노란 안내), `-Install` 로 부트스트랩합니다.
+- 린트는 이 저장소 관례와 충돌하는 규칙(`PSAvoidUsingWriteHost`/`PSUseSingularNouns`/`PSReviewUnusedParameter`)을 제외합니다.
+- 테스트는 **Pester 5 이상**이 필요합니다(Windows 기본 3.4.0 은 문법이 달라 안 씀).
 
 단일 인스턴스만 다룰 때는 대부분의 스크립트가 `-Service <소문자 서비스키>`를 받습니다. 서비스키는 `.env` 접두사(prefix)의 소문자입니다(예: `DB2019C_*` → `db2019c`).
 
