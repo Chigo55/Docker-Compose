@@ -149,6 +149,8 @@ if (-not $Force) {
 ## 12. Git 커밋
 
 - 형식: `<type>: <설명>` (type: feat/fix/refactor/docs/test/chore/perf/ci).
+- **작업은 worktree 에서, 병합은 PR 로.** main 에 직접 커밋·push 하지 않는다. 자세한 흐름은
+  [rules/workflow.md](rules/workflow.md)·[ADR-0015](adr/0015-worktree-pr-github-actions.md) 참고.
 - 인스턴스 추가처럼 `.env` 변경이 필요한 작업은 실값 `.env`가 Git 밖이므로, 커밋에는
   `compose.yml`과 `.env.example`만 반영되고 실값은 팀 내 수동 전파임을 유의한다.
 

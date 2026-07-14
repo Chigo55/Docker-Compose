@@ -77,6 +77,18 @@ Push-Location .\compose; docker compose config; Pop-Location
 
 단일 인스턴스만 다룰 때는 대부분의 스크립트가 `-Service <소문자 서비스키>`를 받습니다. 서비스키는 `.env` 접두사(prefix)의 소문자입니다(예: `DB2019C_*` → `db2019c`).
 
+## 작업 흐름 (worktree · CI · PR)
+
+이 저장소의 모든 변경(스크립트·설정·문서)은 아래 흐름을 따릅니다. 근거는 [ADR-0015](.claude/adr/0015-worktree-pr-github-actions.md)·[ADR-0016](.claude/adr/0016-track-in-github-not-docs.md), 실행 규칙은 [rules/workflow.md](.claude/rules/workflow.md)에 있습니다.
+
+1. **worktree 에서 작업** — main 워킹트리에서 직접 편집하지 않고, `git worktree add -b <type>/<주제> ..\wt-<주제> main` 으로 격리된 작업 공간을 만들어 편집·커밋합니다.
+2. **커밋 전 로컬 검증** — `.\scripts\check.ps1 -Test`(린트 + doctor + Pester).
+3. **push → PR** — `git push -u origin <브랜치>` 후 `gh pr create`. **main 직접 push 는 하지 않습니다.**
+4. **CI 게이트** — `.github/workflows/ci.yml` 이 PR·push 마다 `check.ps1 -Test -Install` 을 windows-latest 에서 실행합니다. **통과해야 병합**합니다.
+5. **작업 후 정리** — 병합되면 `git worktree remove` 로 작업 공간을 정리합니다.
+
+추적은 문서가 아니라 GitHub 으로 합니다: **로드맵·추후 업데이트**는 위 [로드맵](#로드맵) 섹션대로 GitHub Project 로, **작업 중 발견한 범위 밖 버그·위험**은 `gh issue create` 로 등록합니다(현재 작업 커밋에 섞지 않음).
+
 ## 아키텍처: 왜 이렇게 구성했는가
 
 여러 파일에 걸쳐 있어 한 파일만 봐서는 놓치기 쉬운 핵심 설계입니다.

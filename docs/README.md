@@ -252,6 +252,8 @@ schtasks /create /tn "MSSQL Farm Backup" /sc daily /st 02:00 /rl highest `
 - 단위 테스트는 Docker가 필요 없는 순수 로직(`Read-DotEnv` 파싱, `Get-Instances` 발견, `Resolve-Services` 검증)을 대상으로 합니다.
 
 > **설계 문서** — 왜 이렇게 만들었는지(ADR)·편집 규칙(RULES)·코드 규약(CONVENTIONS)은 `.claude/` 폴더에 정리되어 있습니다. 스크립트를 새로 추가하거나 고치기 전에 참고하세요.
+>
+> **기여 흐름** — 변경은 worktree 에서 만들고 PR 로 병합하며, GitHub Actions CI(`.github/workflows/ci.yml`)가 통과해야 합니다. 자세한 흐름은 [.claude/rules/workflow.md](../.claude/rules/workflow.md) 참고.
 
 ---
 
@@ -345,7 +347,7 @@ docker exec Db2019C ls /opt/mssql-tools*/bin/
 
 추가하면 좋을 기능(healthy 대기, DB 인벤토리, 대화형 셸, 차등/로그 백업, 롤링 업데이트,
 비밀번호 회전 등)을 우선순위·근거와 함께 [ROADMAP.md](./ROADMAP.md)에 정리해 두었습니다.
-단위 테스트·린트는 위의 [내부 개발 루프](#내부-개발-루프-저장소를-고칠-때)로 이미 갖췄고, 남은 것은 GitHub Actions CI 연결입니다.
+단위 테스트·린트·GitHub Actions CI 는 위의 [내부 개발 루프](#내부-개발-루프-저장소를-고칠-때)와 `.github/workflows/ci.yml` 로 이미 갖췄습니다. 로드맵의 단일 소스는 GitHub Project(위 [ROADMAP.md](./ROADMAP.md) 상단 배너 참고)입니다.
 
 ---
 
