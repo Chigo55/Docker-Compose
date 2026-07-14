@@ -92,7 +92,7 @@ Push-Location .\compose; docker compose config; Pop-Location
 - 데이터는 호스트 바인드 마운트(`DATA_ROOT/<XXX_DIR>/data` → `/var/opt/mssql/data`)에 있습니다. 그래서 `down.ps1`으로 컨테이너를 지워도 **데이터는 보존**됩니다.
 - `start.ps1`은 기동 전에 데이터 폴더를 먼저 만듭니다. 폴더가 없는 채로 올리면 Docker가 빈 폴더를 생성해 **기존 DB를 못 붙기** 때문입니다.
 - 백업은 **반드시 `backup.ps1`(엔진 `BACKUP DATABASE`)로** 합니다. 실행 중 인스턴스의 `.mdf`를 직접 복사하면 손상된 사본이 나옵니다.
-- 현재 마운트는 `data`만입니다. errorlog(`/var/opt/mssql/log`)와 secrets는 컨테이너와 함께 사라집니다.
+- 기본 마운트는 `data`만입니다. errorlog(`/var/opt/mssql/log`)·secrets는 그대로 두면 컨테이너와 함께 사라지지만, **선택적으로 보존**할 수 있습니다: `compose/.env`의 `MOUNT_LOG_SECRETS=true`와 `compose/compose.yml` 각 서비스 `volumes`의 log/secrets 마운트 두 줄 주석을 **함께** 해제하면, `start.ps1`이 `DATA_ROOT/<XXX_DIR>/log`·`secrets` 폴더를 만들고 호스트에 보존합니다.
 
 ### 4. `scripts/lib/_common.ps1` — 모든 스크립트의 공용 기반
 
@@ -107,6 +107,7 @@ Push-Location .\compose; docker compose config; Pop-Location
 - `restart.ps1`(옵션 없음)은 `.env`의 포트/이미지/볼륨 변경을 **반영하지 못합니다**. 이 경우 `-Recreate`를 쓰세요.
 - 컨테이너명(`_NAME`)과 폴더명(`_DIR`)을 다르게 둘 수 있습니다(예: 기존 데이터 이관 시 컨테이너 `Db2019A` ↔ 폴더 `Db2019A-old`). 기존 DB 경로 호환을 위한 것이니 임의로 통일하지 마세요.
 - `MSSQL_MEMORY_LIMIT_MB`, `MSSQL_AGENT_ENABLED`는 선택 항목입니다. 쓰려면 `compose/.env`와 `compose/compose.yml`의 대응 줄을 **둘 다** 주석 해제해야 합니다(한쪽만 풀어 빈 값이 넘어가면 기동 실패).
+- `MOUNT_LOG_SECRETS`(errorlog·secrets 보존)도 같은 "양쪽 함께 켜기" 항목입니다. 다만 compose 쪽은 `${VAR}` 참조가 아니라 각 서비스 `volumes`의 log/secrets 마운트 주석을 해제하는 방식이고, 이 플래그(`compose/.env`)는 `start.ps1`이 폴더를 만들지를 결정합니다(§3 데이터 안전 모델 참고).
 - `MSSQL_SA_PASSWORD`가 `compose/.env`에 평문으로 있습니다. 실제 값이 든 `compose/.env`는 `.gitignore`로 제외되어 있고, 팀에는 값을 지운 `compose/.env.example`만 커밋/공유합니다.
 
 ## 코드 규약 (기존 스크립트와 일관성 유지)
