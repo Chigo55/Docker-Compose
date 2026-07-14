@@ -91,6 +91,51 @@ function Read-DotEnv {
 
 
 # ───────────────────────────────────────────────────────────────────────────
+#  Set-DotEnvValue : .env 의 한 키 값을 파일에서 직접 고쳐 씁니다.
+#
+#  Read-DotEnv 가 주는 "파싱된 사전"은 주석·순서를 잃으므로, 값 하나만 바꿀 때는
+#  원문 줄을 그대로 두고 해당 키 줄만 교체합니다(주석/다른 값 보존).
+#    · 키가 있으면 그 줄을 "<Key>=<Value>" 로 교체
+#    · 없으면 파일 끝에 "<Key>=<Value>" 를 추가
+#  compose 가 읽는 파일이라 BOM 없이(UTF8Encoding $false) 저장하고, 값 캐시를 비웁니다.
+#  주의: 값은 원문 그대로 씁니다($$ 이스케이프/따옴표를 넣지 않음). 스크립트가 .env
+#        원문을 그대로 쓰는 값(비밀번호 등)에 맞춘 것입니다.
+#  돌려주는 값: 기존 키를 교체했으면 $true, 새로 추가했으면 $false.
+# ───────────────────────────────────────────────────────────────────────────
+function Set-DotEnvValue {
+    param(
+        [Parameter(Mandatory)][string]$Key,
+        [Parameter(Mandatory)][string]$Value,
+        [string]$Path = $script:EnvFile
+    )
+
+    if (-not (Test-Path $Path)) { throw ".env 파일을 찾을 수 없습니다: $Path" }
+
+    $lines    = @(Get-Content -Path $Path -Encoding UTF8)
+    $replaced = $false
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $trimmed = $lines[$i].Trim()
+        if ($trimmed -eq '' -or $trimmed.StartsWith('#')) { continue }
+        $eq = $trimmed.IndexOf('=')
+        if ($eq -lt 1) { continue }
+        if ($trimmed.Substring(0, $eq).Trim() -eq $Key) {
+            $lines[$i] = "$Key=$Value"
+            $replaced  = $true
+            break
+        }
+    }
+    if (-not $replaced) { $lines += "$Key=$Value" }
+
+    # BOM 없는 UTF-8 로 기록 (compose/.env 는 BOM 없어야 함)
+    [System.IO.File]::WriteAllLines($Path, $lines, (New-Object System.Text.UTF8Encoding($false)))
+
+    # 파일이 바뀌었으니 다음 Read-DotEnv 가 새로 읽도록 캐시를 비웁니다.
+    $script:DotEnvCache = $null
+    return $replaced
+}
+
+
+# ───────────────────────────────────────────────────────────────────────────
 #  Assert-Docker : Docker 가 켜져 있는지 확인합니다.
 #  Docker Desktop 이 꺼져 있으면 이후 모든 명령이 실패하므로, 먼저 점검합니다.
 # ───────────────────────────────────────────────────────────────────────────
@@ -385,11 +430,13 @@ function Invoke-Sql {
         [Parameter(Mandatory)][string]$Query,       # 실행할 T-SQL 문장
         [string]$Database = 'master',               # 접속할 DB (기본: master)
         [int]$LoginTimeout = 10,                     # 로그인 대기 시간(초)
-        [string]$Separator                           # 값을 주면 컬럼을 이 문자로 구분(-s). 여러 컬럼 결과 파싱용.
+        [string]$Separator,                          # 값을 주면 컬럼을 이 문자로 구분(-s). 여러 컬럼 결과 파싱용.
+        [string]$Password                            # 값을 주면 .env 대신 이 비밀번호로 접속 (비밀번호 회전/롤백용)
     )
 
-    $password = (Read-DotEnv)['MSSQL_SA_PASSWORD']
-    $sqlcmd   = Get-SqlcmdInvocation -Container $Container
+    # 기본은 .env 의 SA 비밀번호. -Password 를 주면 그 값으로 접속합니다.
+    $pw     = if ($Password) { $Password } else { (Read-DotEnv)['MSSQL_SA_PASSWORD'] }
+    $sqlcmd = Get-SqlcmdInvocation -Container $Container
 
     # docker exec 에 넘길 인자들을 순서대로 조립합니다.
     #  -e SQLCMDPASSWORD=... : 컨테이너 안에서 비밀번호를 환경변수로 받게 함
@@ -404,7 +451,7 @@ function Invoke-Sql {
     if ($Separator) { $sqlArgs += @('-s', $Separator) }
     $sqlArgs += @('-Q', $Query)
 
-    $dockerArgs = @('exec', '-e', "SQLCMDPASSWORD=$password", $Container) +
+    $dockerArgs = @('exec', '-e', "SQLCMDPASSWORD=$pw", $Container) +
                   $sqlcmd + $sqlArgs
 
     # 2>&1 : 오류 출력도 일반 출력과 함께 받아, 실패 원인을 확인할 수 있게 합니다.

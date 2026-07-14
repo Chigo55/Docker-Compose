@@ -10,6 +10,8 @@
            · PSAvoidUsingWriteHost   : 컬러 단계 출력은 이 저장소의 출력 방식(관례)
            · PSUseSingularNouns      : Get-Instances 등 컬렉션 반환 함수의 복수형은 의도
            · PSReviewUnusedParameter : 중첩 함수/스크립트블록에서 쓰는 파라미터를 오탐
+           · PSAvoidUsingPlainTextForPassword          : SA 비밀번호를 평문으로 다루는 설계(ADR-0013)
+           · PSUseShouldProcessForStateChangingFunctions: ShouldProcess 대신 수동 y/N 프롬프트 관례(CONVENTIONS §9)
       2) 규약 점검 (doctor.ps1) — .env/compose 규약 + docker compose config 렌더링.
          (doctor 가 마지막 단계에서 compose 렌더링까지 하므로 여기서 따로 하지 않습니다.)
 
@@ -51,7 +53,10 @@ Set-Location -Path $RepoRoot
 
 
 # 이 저장소 관례와 충돌해 제외하는 규칙들 (.DESCRIPTION 에 이유 명시).
-$script:ExcludedRules = @('PSAvoidUsingWriteHost', 'PSUseSingularNouns', 'PSReviewUnusedParameter')
+$script:ExcludedRules = @(
+    'PSAvoidUsingWriteHost', 'PSUseSingularNouns', 'PSReviewUnusedParameter',
+    'PSAvoidUsingPlainTextForPassword', 'PSUseShouldProcessForStateChangingFunctions'
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

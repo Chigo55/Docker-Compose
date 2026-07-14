@@ -155,3 +155,37 @@ Describe 'Resolve-Services' {
         { Resolve-Services -Service 'db9999' } | Should -Throw -ExpectedMessage '*db2019c*'
     }
 }
+
+
+Describe 'Set-DotEnvValue' {
+
+    BeforeEach {
+        $script:DotEnvCache = $null   # 매 테스트가 파일을 새로 읽도록 캐시를 비웁니다.
+        $fixture = Join-Path $TestDrive 'rw.env'
+        @'
+# 주석 줄 — 보존되어야 함
+DATA_ROOT=C:/docker
+MSSQL_SA_PASSWORD=OldPass1!
+DB2019C_PORT=40200
+'@ | Set-Content -Path $fixture -Encoding UTF8
+    }
+
+    It '기존 키 값을 교체하고($true 반환) 다른 줄은 보존한다' {
+        Set-DotEnvValue -Key 'MSSQL_SA_PASSWORD' -Value 'NewPass2@' -Path $fixture | Should -BeTrue
+        $lines = Get-Content -Path $fixture -Encoding UTF8
+        @($lines | Where-Object { $_ -eq 'MSSQL_SA_PASSWORD=NewPass2@' }).Count | Should -Be 1
+        @($lines | Where-Object { $_ -eq '# 주석 줄 — 보존되어야 함' }).Count | Should -Be 1
+        @($lines | Where-Object { $_ -eq 'DB2019C_PORT=40200' }).Count | Should -Be 1
+    }
+
+    It '없는 키는 파일 끝에 추가한다($false 반환)' {
+        Set-DotEnvValue -Key 'NEW_KEY' -Value 'v1' -Path $fixture | Should -BeFalse
+        (Get-Content -Path $fixture -Encoding UTF8)[-1] | Should -Be 'NEW_KEY=v1'
+    }
+
+    It '교체 후 Read-DotEnv 가 새 값을 돌려준다 (캐시 무효화)' {
+        Read-DotEnv -Path $fixture | Out-Null                 # 캐시를 먼저 채움
+        Set-DotEnvValue -Key 'DATA_ROOT' -Value 'E:/x' -Path $fixture | Out-Null
+        (Read-DotEnv -Path $fixture)['DATA_ROOT'] | Should -Be 'E:/x'
+    }
+}
