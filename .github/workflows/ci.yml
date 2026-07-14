@@ -1,0 +1,57 @@
+name: CI
+
+# 스크립트/설정 회귀를 push·PR 마다 자동으로 잡습니다(ROADMAP P3-9).
+# windows-latest + Windows PowerShell 5.1 에서 내부 개발 루프 check.ps1 -Test 의
+# "Docker 불필요" 부분만 돌립니다: 린트(PSScriptAnalyzer) + 규약 점검(doctor) +
+# Pester 단위 테스트.
+#   · 실제 운영 환경이 PowerShell 5.1 이므로 러너도 5.1(shell: powershell)로 맞춥니다.
+#     UTF-8 BOM 규약이 존재하는 이유가 5.1 의 CP949 오독이라, 검증도 5.1 에서 해야 합니다.
+#   · Docker/실값 .env 가 필요한 백업·복원·compose 렌더링은 CI 대상이 아닙니다.
+#     doctor 는 Docker 가 없으면 그 단계를 경고만 남기고 통과하도록 이미 설계돼 있습니다.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+# 같은 ref 에 새 커밋이 오면 진행 중이던 실행은 취소합니다(러너 시간 절약).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: lint + doctor + tests (PowerShell 5.1)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create compose/.env for CI
+        shell: powershell
+        run: |
+          # 실값 .env 는 .gitignore 대상이라 러너에 없습니다. 견본(.env.example)을 복사하고
+          # 유일한 결측값인 SA 비밀번호만 정책(8자+ / 문자 3종+)을 충족하는 더미로 채웁니다.
+          # 이 .env 는 doctor 규약 점검(3종 세트/포트 중복/서비스키 일치 등)에만 쓰이며,
+          # Docker 로 기동하지 않으므로 실제 접속에는 사용되지 않습니다.
+          $src = 'compose/.env.example'
+          $dst = Join-Path $PWD 'compose/.env'
+          $lines = Get-Content $src -Encoding UTF8 | ForEach-Object {
+              if ($_ -match '^MSSQL_SA_PASSWORD=') { 'MSSQL_SA_PASSWORD=CiTest_Pass123' } else { $_ }
+          }
+          # docker 가 읽는 파일이므로 BOM 없이(UTF8Encoding $false) 씁니다.
+          [System.IO.File]::WriteAllLines($dst, $lines, (New-Object System.Text.UTF8Encoding($false)))
+          Write-Host "생성: $dst (SA 비밀번호는 CI 더미)"
+
+      - name: Run internal dev loop (check.ps1 -Test -Install)
+        shell: powershell
+        run: |
+          # Windows PowerShell 5.1 은 기본 보안 프로토콜에 TLS1.2 가 빠져 있어 PSGallery
+          # 설치가 실패할 수 있습니다. -Install 이 모듈을 받기 전에 같은 프로세스에서 켭니다.
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          # 한국어 단계 출력이 Actions 로그에서 깨지지 않게 콘솔 출력을 UTF-8 로 맞춥니다.
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          # 린트 + doctor + Pester. 없는 개발 모듈(PSScriptAnalyzer/Pester 5+)은 -Install 로 확보.
+          # 실패하면 check.ps1 이 exit 1 을 내고, 그 종료 코드로 이 스텝이 실패 처리됩니다.
+          .\scripts\check.ps1 -Test -Install
