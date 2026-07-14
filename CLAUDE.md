@@ -69,8 +69,11 @@ Push-Location .\compose; docker compose config; Pop-Location
 ```
 
 - 개발 모듈은 **선택 의존성**입니다. 없으면 해당 단계만 건너뛰며(노란 안내), `-Install` 로 부트스트랩합니다.
-- 린트는 이 저장소 관례와 충돌하는 규칙(`PSAvoidUsingWriteHost`/`PSUseSingularNouns`/`PSReviewUnusedParameter`)을 제외합니다.
+- 린트 제외 규칙은 `check.ps1` 의 `$ExcludedRules` 에 있습니다(제외 이유 주석 포함): `PSAvoidUsingWriteHost`·`PSUseSingularNouns`·`PSReviewUnusedParameter`·`PSAvoidUsingPlainTextForPassword`(평문 SA 비번 설계, ADR-0013)·`PSUseShouldProcessForStateChangingFunctions`(수동 y/N 프롬프트 관례, CONVENTIONS §9).
 - 테스트는 **Pester 5 이상**이 필요합니다(Windows 기본 3.4.0 은 문법이 달라 안 씀).
+- **`compose/.env` 가 없으면(gitignore)** `check.ps1` 의 doctor 단계가 멈춥니다. 값·규약만 검증할 땐 `compose/.env.example` 을 복사해 `MSSQL_SA_PASSWORD` 만 정책 충족 더미로 채운 임시 `.env` 로 돌리고 지웁니다(CI 도 동일).
+- Docker 가 꺼져 있으면 doctor 는 compose 렌더링을 건너뛰지만 종료 코드가 새어 `check.ps1` 이 실패로 보일 수 있습니다(이슈 #3). 이땐 doctor 자체 요약 `오류 N건` 으로 판단하세요.
+- CI(`.github/workflows/ci.yml`)의 `run:` 블록은 **ASCII 전용**으로 유지합니다. GitHub 이 BOM 없는 임시 `.ps1` 로 저장하고 러너의 Windows PowerShell 5.1 이 한글을 ANSI 로 오독해 파싱이 깨집니다(최상위 YAML 주석의 한글은 무방).
 
 단일 인스턴스만 다룰 때는 대부분의 스크립트가 `-Service <소문자 서비스키>`를 받습니다. 서비스키는 `.env` 접두사(prefix)의 소문자입니다(예: `DB2019C_*` → `db2019c`).
 
@@ -122,3 +125,4 @@ Push-Location .\compose; docker compose config; Pop-Location
 - 새 로직은 새 스크립트에 하드코딩하지 말고 `scripts/lib/_common.ps1`의 자동 발견/헬퍼(`Get-Instances`, `Get-TargetInstances`, `Invoke-Compose`, `Invoke-Sql` 등)를 재사용하세요.
 - 사용자 대면 출력은 한국어이며 `Write-Host -ForegroundColor`로 단계(Cyan 헤더, Green 성공, Yellow 경고, Red 실패, DarkGray 부가)를 구분합니다.
 - 배치 작업(`backup.ps1`)은 인스턴스 하나가 실패해도 나머지를 계속 진행하고, 마지막에 요약 표를 낸 뒤 실패가 있으면 `exit 1`을 반환합니다(스케줄러 감지용). 새 배치 스크립트도 이 패턴을 따르세요.
+- 릴리스: 하위호환 기능 추가는 마이너 범프 — `CHANGELOG.md`(Keep a Changelog) 갱신 + annotated 태그 `vX.Y.Z` 생성 + `gh release`.
