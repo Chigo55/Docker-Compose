@@ -30,28 +30,32 @@ jobs:
 
       - name: Create compose/.env for CI
         shell: powershell
+        # NOTE: this run block must stay ASCII-only. GitHub writes it to a BOM-less
+        #       temp .ps1, and Windows PowerShell 5.1 mis-decodes non-ASCII (e.g. Korean)
+        #       as ANSI, which breaks parsing. Comments/strings here are English on purpose.
         run: |
-          # 실값 .env 는 .gitignore 대상이라 러너에 없습니다. 견본(.env.example)을 복사하고
-          # 유일한 결측값인 SA 비밀번호만 정책(8자+ / 문자 3종+)을 충족하는 더미로 채웁니다.
-          # 이 .env 는 doctor 규약 점검(3종 세트/포트 중복/서비스키 일치 등)에만 쓰이며,
-          # Docker 로 기동하지 않으므로 실제 접속에는 사용되지 않습니다.
+          # Real .env is gitignored, so it is absent on the runner. Copy the example
+          # and fill only the missing SA password with a policy-compliant dummy
+          # (8+ chars, 3+ character classes). This .env is used only by doctor's
+          # convention checks; nothing connects with it (no Docker start in CI).
           $src = 'compose/.env.example'
           $dst = Join-Path $PWD 'compose/.env'
           $lines = Get-Content $src -Encoding UTF8 | ForEach-Object {
               if ($_ -match '^MSSQL_SA_PASSWORD=') { 'MSSQL_SA_PASSWORD=CiTest_Pass123' } else { $_ }
           }
-          # docker 가 읽는 파일이므로 BOM 없이(UTF8Encoding $false) 씁니다.
+          # docker reads this file, so write UTF-8 without BOM.
           [System.IO.File]::WriteAllLines($dst, $lines, (New-Object System.Text.UTF8Encoding($false)))
-          Write-Host "생성: $dst (SA 비밀번호는 CI 더미)"
+          Write-Host "Created $dst (dummy SA password for CI)"
 
       - name: Run internal dev loop (check.ps1 -Test -Install)
         shell: powershell
+        # NOTE: ASCII-only run block (same reason as the step above).
         run: |
-          # Windows PowerShell 5.1 은 기본 보안 프로토콜에 TLS1.2 가 빠져 있어 PSGallery
-          # 설치가 실패할 수 있습니다. -Install 이 모듈을 받기 전에 같은 프로세스에서 켭니다.
+          # Windows PowerShell 5.1 does not enable TLS 1.2 by default, so PSGallery
+          # installs can fail. Enable it in the same process before -Install fetches modules.
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-          # 한국어 단계 출력이 Actions 로그에서 깨지지 않게 콘솔 출력을 UTF-8 로 맞춥니다.
+          # Make console output UTF-8 so check.ps1's Korean output renders in the Actions log.
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-          # 린트 + doctor + Pester. 없는 개발 모듈(PSScriptAnalyzer/Pester 5+)은 -Install 로 확보.
-          # 실패하면 check.ps1 이 exit 1 을 내고, 그 종료 코드로 이 스텝이 실패 처리됩니다.
+          # Lint + doctor + Pester. Missing dev modules (PSScriptAnalyzer/Pester 5+) come via -Install.
+          # If it fails, check.ps1 exits 1 and this step fails with that exit code.
           .\scripts\check.ps1 -Test -Install
