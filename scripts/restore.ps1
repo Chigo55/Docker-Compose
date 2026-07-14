@@ -8,6 +8,8 @@
     RESTORE DATABASE 를 시킵니다. 사람이 신경 쓰기 번거로운 부분을 자동화합니다.
 
       · 백업 파일 자동 선택 : <BACKUP_ROOT>\<컨테이너명>\<DB>_*.bak 중 가장 최신 파일
+      · 체인 복원(-Chain)   : 최신 전체(.bak)→차등(.dif)→로그(.trn) 를 자동으로 이어
+                              앞 파일은 NORECOVERY, 마지막만 RECOVERY 로 적용(시점복구)
       · 논리 파일 자동 이동 : RESTORE FILELISTONLY 로 백업 안의 논리 파일명을 읽어
                               WITH MOVE 절을 자동으로 만들어 /var/opt/mssql/data 로 배치
       · 버전 자동 판별      : 2019/2022 sqlcmd 경로를 컨테이너에서 실제 확인(_common.ps1)
@@ -15,10 +17,14 @@
 
     한 인스턴스에 대한 처리 순서:
       1) 컨테이너 실행 확인
-      2) 복원할 .bak 결정 (지정 없으면 해당 컨테이너 폴더의 최신 파일)
-      3) docker cp 로 컨테이너 임시 폴더에 복사
-      4) RESTORE FILELISTONLY 로 논리 파일명/유형(D/L) 파악 → WITH MOVE 구성
-      5) (기존 DB 존재 시) SINGLE_USER 로 전환 후 RESTORE ... WITH REPLACE
+      2) 복원할 파일 결정
+         · 기본        : 해당 컨테이너 폴더의 최신 .bak 하나
+         · -Chain      : 최신 전체(.bak)→차등(.dif)→로그(.trn) 체인
+         · -BackupFile : 지정한 파일 하나
+      3) (체인의 파일마다) docker cp 로 컨테이너 임시 폴더에 복사
+      4) 전체 백업은 RESTORE FILELISTONLY 로 논리 파일명/유형(D/L) 파악 → WITH MOVE 구성
+      5) (기존 DB 존재 시) SINGLE_USER 로 전환 후 RESTORE ... WITH REPLACE.
+         체인이면 전체·차등·앞선 로그는 NORECOVERY, 마지막 파일만 RECOVERY.
       6) 컨테이너 안 임시 파일 삭제
 
     ※ 복원은 대상 DB 를 덮어쓰는 파괴적 작업입니다. -Force 가 없으면 먼저 확인합니다.
@@ -40,6 +46,10 @@
 .EXAMPLE
     .\scripts\restore.ps1 -Service db2019c -Database MyDb -NoRecovery
     이후 로그 백업을 이어 복원할 수 있도록 RESTORING 상태로 둡니다.
+
+.EXAMPLE
+    .\scripts\restore.ps1 -Service db2019c -Database MyDb -Chain
+    최신 전체→차등→로그 백업을 순서대로 이어 복원합니다(가능한 최신 시점까지).
 #>
 [CmdletBinding()]
 param(
@@ -49,6 +59,7 @@ param(
     [string]$BackupFile,           # 특정 .bak 경로 직접 지정 (단일 -Service 와 함께)
     [string]$StagingDir,           # 컨테이너 안 임시 경로 (안 주면 .env 의 BACKUP_STAGING_DIR)
     [switch]$NoRecovery,           # 붙이면: WITH NORECOVERY (추가 로그 복원 대기)
+    [switch]$Chain,                # 붙이면: 최신 전체→차등→로그 체인을 자동으로 이어 복원
     [switch]$Force                 # 붙이면: 덮어쓰기 확인 프롬프트 없이 진행
 )
 
@@ -86,6 +97,50 @@ function Resolve-BackupFile {
 
     if (-not $latest) { throw ("복원할 백업이 없습니다: {0}\{1}_*.bak" -f $hostDir, $Database) }
     return $latest
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Get-RestoreChain : 최신 복구 체인(전체→차등→로그)을 이룰 파일들을 순서대로 돌려줍니다.
+#    1) 가장 최근 전체 백업(.bak)
+#    2) 그 전체 이후의 가장 최근 차등(.dif) — 있으면
+#    3) 차등(없으면 전체) 이후의 모든 로그(.trn) — 시각 오름차순
+#  전체보다 오래된, 또는 차등보다 오래된 로그는 이미 반영됐거나 겹치므로 제외합니다.
+#  ※ 파일 수정시각으로 체인을 추정합니다. 표준 순서로 백업했다면 맞아떨어지며,
+#    LSN 이 어긋나면 실제 RESTORE 단계에서 SQL Server 가 오류로 알려 줍니다.
+# ═══════════════════════════════════════════════════════════════════════════
+function Get-RestoreChain {
+    param(
+        [Parameter(Mandatory)][pscustomobject]$Instance,
+        [Parameter(Mandatory)][string]$Database,
+        [Parameter(Mandatory)][string]$BackupRoot
+    )
+
+    $hostDir = Join-Path $BackupRoot $Instance.Name
+    if (-not (Test-Path $hostDir)) { throw ("백업 폴더가 없습니다: {0}" -f $hostDir) }
+
+    # 1) 기준이 될 최신 전체 백업
+    $full = Get-ChildItem -Path $hostDir -Filter ("{0}_*.bak" -f $Database) -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if (-not $full) { throw ("체인의 기준이 될 전체 백업(.bak)이 없습니다: {0}\{1}_*.bak" -f $hostDir, $Database) }
+
+    $chain = [System.Collections.Generic.List[object]]::new()
+    $chain.Add($full)
+
+    # 2) 전체 이후의 최신 차등
+    $diff = Get-ChildItem -Path $hostDir -Filter ("{0}_*.dif" -f $Database) -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.LastWriteTime -gt $full.LastWriteTime } |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($diff) { $chain.Add($diff) }
+
+    # 3) 차등(있으면)·전체 이후의 모든 로그를 시각 오름차순으로
+    $baseTime = if ($diff) { $diff.LastWriteTime } else { $full.LastWriteTime }
+    Get-ChildItem -Path $hostDir -Filter ("{0}_*.trn" -f $Database) -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.LastWriteTime -gt $baseTime } |
+        Sort-Object LastWriteTime |
+        ForEach-Object { $chain.Add($_) }
+
+    return @($chain)
 }
 
 
@@ -146,8 +201,8 @@ RESTORE FILELISTONLY FROM DISK = N'$RemoteBak';
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  Restore-OneInstance : 인스턴스 "하나"를 복원하는 실제 절차.
-#  성공하면 { File; DB } 를 돌려주고, 어느 단계든 실패하면 오류(throw)를 냅니다.
+#  Restore-OneInstance : 인스턴스 "하나"를 복원하는 실제 절차(체인이면 여러 파일).
+#  성공하면 { File; DB; Count } 를 돌려주고, 어느 단계든 실패하면 오류(throw)를 냅니다.
 # ═══════════════════════════════════════════════════════════════════════════
 function Restore-OneInstance {
     param(
@@ -157,6 +212,7 @@ function Restore-OneInstance {
         [Parameter(Mandatory)][string]$BackupRoot,
         [Parameter(Mandatory)][string]$Stamp,
         [string]$BackupFile,
+        [switch]$Chain,
         [switch]$NoRecovery
     )
 
@@ -167,26 +223,44 @@ function Restore-OneInstance {
         throw '컨테이너가 실행 중이 아닙니다.'
     }
 
-    # 2) 복원할 .bak 결정
-    $src = Resolve-BackupFile -Instance $Instance -Database $Database -BackupRoot $BackupRoot -BackupFile $BackupFile
-    $sizeMB = [math]::Round($src.Length / 1MB, 1)
-    Write-Host ("  대상 백업: {0} ({1} MB)" -f $src.FullName, $sizeMB) -ForegroundColor DarkGray
+    # 2) 복원할 파일 목록(체인) 결정
+    #    · -BackupFile : 지정한 그 파일 하나
+    #    · -Chain      : 최신 전체→차등→로그 자동 연결
+    #    · (기본)      : 해당 폴더의 최신 전체 백업 하나 (기존 동작 그대로)
+    if ($BackupFile) {
+        $chain = @(Resolve-BackupFile -Instance $Instance -Database $Database -BackupRoot $BackupRoot -BackupFile $BackupFile)
+    } elseif ($Chain) {
+        $chain = Get-RestoreChain -Instance $Instance -Database $Database -BackupRoot $BackupRoot
+    } else {
+        $chain = @(Resolve-BackupFile -Instance $Instance -Database $Database -BackupRoot $BackupRoot)
+    }
 
-    # 3) 컨테이너 임시 폴더로 복사
-    $remoteBak = "$StagingDir/restore_$Stamp.bak"
+    Write-Host ("  복원 체인: {0}개 파일" -f $chain.Count) -ForegroundColor DarkGray
+    $chain | ForEach-Object {
+        Write-Host ("    - {0} ({1} MB)" -f $_.Name, [math]::Round($_.Length / 1MB, 1)) -ForegroundColor DarkGray
+    }
+
+    # 3) 파일마다: 컨테이너로 복사 → RESTORE → 임시 파일 정리
+    #    첫 파일(전체)만 WITH MOVE + REPLACE + SINGLE_USER. 마지막 파일만 RECOVERY.
+    #    (-NoRecovery 면 마지막까지 NORECOVERY 로 두어 이후 수동 로그 복원을 이어갈 수 있게 합니다.)
     docker exec $container mkdir -p $StagingDir 2>$null | Out-Null
-    & docker cp "$($src.FullName)" "${container}:$remoteBak"
-    if ($LASTEXITCODE -ne 0) { throw 'docker cp (컨테이너로 복사) 실패' }
 
-    try {
-        # 4) 논리 파일명 → WITH MOVE 절 구성
-        $moveClauses = Get-MoveClauses -Container $container -RemoteBak $remoteBak -Database $Database
+    for ($i = 0; $i -lt $chain.Count; $i++) {
+        $file     = $chain[$i]
+        $isFirst  = ($i -eq 0)
+        $isLast   = ($i -eq ($chain.Count - 1))
+        $recovery = if ($isLast -and -not $NoRecovery) { 'RECOVERY' } else { 'NORECOVERY' }
 
-        # 5) 복원 실행 (기존 DB 있으면 연결을 끊고 덮어씀)
-        #    RECOVERY : 복원 후 즉시 사용 가능 / NORECOVERY : 추가 복원 대기(RESTORING)
-        $recovery = if ($NoRecovery) { 'NORECOVERY' } else { 'RECOVERY' }
-        Write-Host '  복원 실행 중...' -ForegroundColor DarkGray
-        $restore = Invoke-Sql -Container $container -LoginTimeout 30 -Query @"
+        $remoteBak = "$StagingDir/restore_${Stamp}_$i.bak"
+        & docker cp "$($file.FullName)" "${container}:$remoteBak"
+        if ($LASTEXITCODE -ne 0) { throw ("docker cp (컨테이너로 복사) 실패: {0}" -f $file.Name) }
+
+        try {
+            if ($isFirst) {
+                # 전체 백업: 논리 파일명 → WITH MOVE 구성, 기존 DB 있으면 연결 끊고 덮어씀
+                $moveClauses = Get-MoveClauses -Container $container -RemoteBak $remoteBak -Database $Database
+                Write-Host ("  [1/{0}] 전체 복원: {1} ({2})" -f $chain.Count, $file.Name, $recovery) -ForegroundColor DarkGray
+                $sql = @"
 SET NOCOUNT ON;
 IF DB_ID(N'$Database') IS NOT NULL
     ALTER DATABASE [$Database] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
@@ -194,16 +268,31 @@ RESTORE DATABASE [$Database] FROM DISK = N'$remoteBak'
 WITH REPLACE, $recovery, STATS = 10,
 $moveClauses;
 "@
-        if (-not $restore.Success) { throw ("RESTORE 실패: {0}" -f $restore.Output) }
-    }
-    finally {
-        # 6) 컨테이너 안 임시 파일 정리 (성공/실패 무관)
-        docker exec $container rm -f $remoteBak 2>$null | Out-Null
+            } else {
+                # 차등(.dif)은 RESTORE DATABASE, 로그(.trn)는 RESTORE LOG. 둘 다 MOVE 불필요.
+                $ext    = $file.Extension.ToLower()
+                $target = if ($ext -eq '.trn') { 'LOG' } else { 'DATABASE' }
+                $label  = if ($ext -eq '.trn') { '로그' } elseif ($ext -eq '.dif') { '차등' } else { '추가' }
+                Write-Host ("  [{0}/{1}] {2} 복원: {3} ({4})" -f ($i + 1), $chain.Count, $label, $file.Name, $recovery) -ForegroundColor DarkGray
+                $sql = @"
+SET NOCOUNT ON;
+RESTORE $target [$Database] FROM DISK = N'$remoteBak'
+WITH $recovery, STATS = 10;
+"@
+            }
+
+            $r = Invoke-Sql -Container $container -LoginTimeout 30 -Query $sql
+            if (-not $r.Success) { throw ("RESTORE 실패({0}): {1}" -f $file.Name, $r.Output) }
+        }
+        finally {
+            # 컨테이너 안 임시 파일 정리 (성공/실패 무관)
+            docker exec $container rm -f $remoteBak 2>$null | Out-Null
+        }
     }
 
     $state = if ($NoRecovery) { 'RESTORING(대기)' } else { 'ONLINE' }
-    Write-Host ("  완료: {0} → {1}" -f $Database, $state) -ForegroundColor Green
-    return [pscustomobject]@{ File = $src.Name; DB = $Database }
+    Write-Host ("  완료: {0} → {1}  ({2}개 파일)" -f $Database, $state, $chain.Count) -ForegroundColor Green
+    return [pscustomobject]@{ File = $chain[0].Name; DB = $Database; Count = $chain.Count }
 }
 
 
@@ -232,6 +321,11 @@ if (-not $BackupRoot) {
 # 대상 인스턴스 목록
 $instances = Get-TargetInstances -Service $Service
 
+# -BackupFile 과 -Chain 은 서로 다른 파일 선택 방식이라 함께 쓸 수 없습니다.
+if ($BackupFile -and $Chain) {
+    throw '-BackupFile 과 -Chain 은 함께 쓸 수 없습니다. 하나만 지정하세요.'
+}
+
 # -BackupFile 은 한 파일을 뜻하므로, 여러 인스턴스에 동시에 쓰면 모호합니다.
 if ($BackupFile -and @($instances).Count -ne 1) {
     throw '-BackupFile 은 -Service 로 인스턴스를 정확히 하나만 지정했을 때만 쓸 수 있습니다.'
@@ -245,6 +339,7 @@ Write-Host ("  DB       : {0}" -f $Database)
 Write-Host ("  대상     : {0} 개 인스턴스" -f @($instances).Count)
 Write-Host ("  백업 위치: {0}" -f $BackupRoot)
 Write-Host ("  모드     : {0}" -f $(if ($NoRecovery) { 'NORECOVERY (추가 복원 대기)' } else { 'RECOVERY (즉시 사용)' }))
+Write-Host ("  체인     : {0}" -f $(if ($Chain) { '예 (전체→차등→로그 자동 연결)' } else { '아니오' }))
 
 # ── 파괴적 작업이므로 한 번 확인받습니다. ────────────────────────────────────
 Write-Host "`n대상 DB 를 덮어씁니다 (기존 데이터는 사라집니다):" -ForegroundColor Yellow
@@ -271,10 +366,10 @@ foreach ($instance in $instances) {
     try {
         $info = Restore-OneInstance -Instance $instance -Database $Database `
                     -StagingDir $stagingDir -BackupRoot $BackupRoot -Stamp $stamp `
-                    -BackupFile $BackupFile -NoRecovery:$NoRecovery
+                    -BackupFile $BackupFile -Chain:$Chain -NoRecovery:$NoRecovery
 
         $row.Result = 'OK'
-        $row.File   = $info.File
+        $row.File   = if ($info.Count -gt 1) { '{0} (+{1})' -f $info.File, ($info.Count - 1) } else { $info.File }
     }
     catch {
         $row.Result = 'FAIL'
