@@ -80,6 +80,9 @@ x-mssql-2022: &mssql2022
 #   hostname       : 컨테이너 내부에서 서로 부를 때 쓰는 이름
 #   ports          : "호스트포트:컨테이너포트" — 호스트의 포트로 접속하면 내부 1433 으로 연결
 #   volumes        : "호스트폴더:컨테이너폴더" — 데이터를 호스트에 저장해 컨테이너가 사라져도 보존
+#                    기본은 data 만 보존합니다. errorlog(/var/opt/mssql/log)·secrets 도 호스트에
+#                    남기려면 각 서비스 volumes 의 log/secrets 주석 두 줄과 .env 의
+#                    MOUNT_LOG_SECRETS=true 를 함께 켜세요(start.ps1 이 해당 폴더를 만듭니다).
 services:
 
   # ═══ SQL Server 2019 (예시 3개) ═══
@@ -88,21 +91,33 @@ services:
     container_name: ${DB2019A_NAME}
     hostname: ${DB2019A_NAME}
     ports: ["${DB2019A_PORT}:${MSSQL_PORT:-1433}"]
-    volumes: ["${DATA_ROOT}/${DB2019A_DIR}/data:/var/opt/mssql/data"]
+    volumes:
+      - "${DATA_ROOT}/${DB2019A_DIR}/data:/var/opt/mssql/data"
+      # 선택(errorlog·secrets 보존): 아래 2줄 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
+      # - "${DATA_ROOT}/${DB2019A_DIR}/log:/var/opt/mssql/log"
+      # - "${DATA_ROOT}/${DB2019A_DIR}/secrets:/var/opt/mssql/secrets"
 
   db2019b:
     <<: *mssql2019
     container_name: ${DB2019B_NAME}
     hostname: ${DB2019B_NAME}
     ports: ["${DB2019B_PORT}:${MSSQL_PORT:-1433}"]
-    volumes: ["${DATA_ROOT}/${DB2019B_DIR}/data:/var/opt/mssql/data"]
+    volumes:
+      - "${DATA_ROOT}/${DB2019B_DIR}/data:/var/opt/mssql/data"
+      # 선택(errorlog·secrets 보존): 아래 2줄 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
+      # - "${DATA_ROOT}/${DB2019B_DIR}/log:/var/opt/mssql/log"
+      # - "${DATA_ROOT}/${DB2019B_DIR}/secrets:/var/opt/mssql/secrets"
 
   db2019c:
     <<: *mssql2019
     container_name: ${DB2019C_NAME}
     hostname: ${DB2019C_NAME}
     ports: ["${DB2019C_PORT}:${MSSQL_PORT:-1433}"]
-    volumes: ["${DATA_ROOT}/${DB2019C_DIR}/data:/var/opt/mssql/data"]
+    volumes:
+      - "${DATA_ROOT}/${DB2019C_DIR}/data:/var/opt/mssql/data"
+      # 선택(errorlog·secrets 보존): 아래 2줄 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
+      # - "${DATA_ROOT}/${DB2019C_DIR}/log:/var/opt/mssql/log"
+      # - "${DATA_ROOT}/${DB2019C_DIR}/secrets:/var/opt/mssql/secrets"
 
   # ═══ SQL Server 2022 (예시 5개) ═══
   db2022a:
@@ -110,35 +125,55 @@ services:
     container_name: ${DB2022A_NAME}
     hostname: ${DB2022A_NAME}
     ports: ["${DB2022A_PORT}:${MSSQL_PORT:-1433}"]
-    volumes: ["${DATA_ROOT}/${DB2022A_DIR}/data:/var/opt/mssql/data"]
+    volumes:
+      - "${DATA_ROOT}/${DB2022A_DIR}/data:/var/opt/mssql/data"
+      # 선택(errorlog·secrets 보존): 아래 2줄 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
+      # - "${DATA_ROOT}/${DB2022A_DIR}/log:/var/opt/mssql/log"
+      # - "${DATA_ROOT}/${DB2022A_DIR}/secrets:/var/opt/mssql/secrets"
 
   db2022b:
     <<: *mssql2022
     container_name: ${DB2022B_NAME}
     hostname: ${DB2022B_NAME}
     ports: ["${DB2022B_PORT}:${MSSQL_PORT:-1433}"]
-    volumes: ["${DATA_ROOT}/${DB2022B_DIR}/data:/var/opt/mssql/data"]
+    volumes:
+      - "${DATA_ROOT}/${DB2022B_DIR}/data:/var/opt/mssql/data"
+      # 선택(errorlog·secrets 보존): 아래 2줄 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
+      # - "${DATA_ROOT}/${DB2022B_DIR}/log:/var/opt/mssql/log"
+      # - "${DATA_ROOT}/${DB2022B_DIR}/secrets:/var/opt/mssql/secrets"
 
   db2022c:
     <<: *mssql2022
     container_name: ${DB2022C_NAME}
     hostname: ${DB2022C_NAME}
     ports: ["${DB2022C_PORT}:${MSSQL_PORT:-1433}"]
-    volumes: ["${DATA_ROOT}/${DB2022C_DIR}/data:/var/opt/mssql/data"]
+    volumes:
+      - "${DATA_ROOT}/${DB2022C_DIR}/data:/var/opt/mssql/data"
+      # 선택(errorlog·secrets 보존): 아래 2줄 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
+      # - "${DATA_ROOT}/${DB2022C_DIR}/log:/var/opt/mssql/log"
+      # - "${DATA_ROOT}/${DB2022C_DIR}/secrets:/var/opt/mssql/secrets"
 
   db2022d:
     <<: *mssql2022
     container_name: ${DB2022D_NAME}
     hostname: ${DB2022D_NAME}
     ports: ["${DB2022D_PORT}:${MSSQL_PORT:-1433}"]
-    volumes: ["${DATA_ROOT}/${DB2022D_DIR}/data:/var/opt/mssql/data"]
+    volumes:
+      - "${DATA_ROOT}/${DB2022D_DIR}/data:/var/opt/mssql/data"
+      # 선택(errorlog·secrets 보존): 아래 2줄 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
+      # - "${DATA_ROOT}/${DB2022D_DIR}/log:/var/opt/mssql/log"
+      # - "${DATA_ROOT}/${DB2022D_DIR}/secrets:/var/opt/mssql/secrets"
 
   db2022e:
     <<: *mssql2022
     container_name: ${DB2022E_NAME}
     hostname: ${DB2022E_NAME}
     ports: ["${DB2022E_PORT}:${MSSQL_PORT:-1433}"]
-    volumes: ["${DATA_ROOT}/${DB2022E_DIR}/data:/var/opt/mssql/data"]
+    volumes:
+      - "${DATA_ROOT}/${DB2022E_DIR}/data:/var/opt/mssql/data"
+      # 선택(errorlog·secrets 보존): 아래 2줄 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
+      # - "${DATA_ROOT}/${DB2022E_DIR}/log:/var/opt/mssql/log"
+      # - "${DATA_ROOT}/${DB2022E_DIR}/secrets:/var/opt/mssql/secrets"
 
 
 # ─── 네트워크 ────────────────────────────────────────────────────────────────

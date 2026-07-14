@@ -280,6 +280,98 @@ function Test-ContainerRunning {
 
 
 # ───────────────────────────────────────────────────────────────────────────
+#  Get-ContainerHealth : 컨테이너 하나의 헬스체크 상태를 표준 토큰으로 돌려줍니다.
+#
+#  status.ps1 의 상태 표와 Wait-Healthy 가 함께 씁니다(헬스 판정 로직을 한 곳에).
+#  docker inspect 의 .State.Health.Status 를 직접 읽으므로, 사람이 읽는
+#  docker ps 의 "Up ... (healthy)" 문자열 형식에 의존하지 않습니다.
+#
+#  돌려주는 값(모두 소문자):
+#    · 'healthy'   : 헬스체크 통과
+#    · 'unhealthy' : 헬스체크 실패
+#    · 'starting'  : 헬스체크 진행 중 (아직 판정 전)
+#    · 'none'      : 헬스체크가 정의돼 있지 않음
+#    · 'missing'   : 그런 이름의 컨테이너가 없음
+# ───────────────────────────────────────────────────────────────────────────
+function Get-ContainerHealth {
+    param([Parameter(Mandatory)][string]$Container)
+
+    # {{if .State.Health}} : 헬스체크가 정의된 컨테이너만 .Status 값이 있습니다.
+    #                        없으면 'none' 을 찍게 하여 "헬스체크 없음"과 구분합니다.
+    $format = '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}'
+    $status = docker inspect --format $format $Container 2>$null
+
+    # 컨테이너 자체가 없으면 inspect 가 실패합니다(종료 코드 ≠ 0).
+    if ($LASTEXITCODE -ne 0) { return 'missing' }
+
+    $status = "$status".Trim()
+    if ([string]::IsNullOrEmpty($status)) { return 'none' }
+    return $status
+}
+
+
+# ───────────────────────────────────────────────────────────────────────────
+#  Wait-Healthy : 대상 인스턴스가 모두 "정상"이 될 때까지 기다립니다(타임아웃 포함).
+#
+#  스케줄러·CI·연쇄 스크립트에서 "기동이 실제로 끝났는지"를 알 수 있게 해 줍니다.
+#  임의의 Start-Sleep 로 짐작하는 대신 각 컨테이너의 헬스 상태를 폴링합니다.
+#
+#  "정상"의 정의:
+#    · 헬스체크가 있는 컨테이너 → 'healthy'
+#    · 헬스체크가 없는 컨테이너 → 실행 중(running)이면 통과 (판정할 헬스가 없으므로)
+#
+#  돌려주는 값: 전부 정상이 되면 $true, 타임아웃되면 $false.
+#  (호출부에서 $false 면 exit 1 로 실패를 알릴 수 있습니다.)
+# ───────────────────────────────────────────────────────────────────────────
+function Wait-Healthy {
+    param(
+        [Parameter(Mandatory)][object[]]$Instances,   # Get-TargetInstances 결과(.Name 사용)
+        [int]$TimeoutSec = 120,                        # 이 시간(초)을 넘기면 대기를 포기
+        [int]$PollSec = 3                              # 폴링 간격(초)
+    )
+
+    if (@($Instances).Count -eq 0) { return $true }    # 대상이 없으면 기다릴 것도 없음
+
+    # 종료 시각을 미리 정해 두고, 이 시각을 넘기면 포기합니다.
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+
+    # 아직 정상이 아닌 컨테이너 이름들. 매 회차 정상이 된 것은 여기서 빠집니다.
+    $pending = [System.Collections.Generic.List[string]]::new()
+    foreach ($instance in $Instances) { $pending.Add($instance.Name) }
+
+    while ($true) {
+        # 이번 회차에도 아직 정상이 아닌 것만 다음 회차로 넘깁니다.
+        $stillPending = [System.Collections.Generic.List[string]]::new()
+        foreach ($name in $pending) {
+            $health = Get-ContainerHealth -Container $name
+
+            $done =
+                if     ($health -eq 'healthy') { $true }
+                elseif ($health -eq 'none')    { Test-ContainerRunning -Container $name }  # 헬스체크 없음 → 실행 중이면 통과
+                else                           { $false }                                   # starting/unhealthy/missing → 계속 대기
+
+            if (-not $done) { $stillPending.Add($name) }
+        }
+        $pending = $stillPending
+
+        if ($pending.Count -eq 0) {
+            Write-Host '  모두 healthy.' -ForegroundColor Green
+            return $true
+        }
+
+        # 시간이 다 됐으면 아직 안 된 것을 보여 주고 실패로 끝냅니다.
+        if ((Get-Date) -ge $deadline) {
+            Write-Host ("  타임아웃({0}초): {1} 아직 healthy 아님" -f $TimeoutSec, ($pending -join ', ')) -ForegroundColor Red
+            return $false
+        }
+
+        Write-Host ("  대기 중... 남음: {0}" -f ($pending -join ', ')) -ForegroundColor DarkGray
+        Start-Sleep -Seconds $PollSec
+    }
+}
+
+
+# ───────────────────────────────────────────────────────────────────────────
 #  Invoke-Sql : 컨테이너 안의 SQL Server 에 T-SQL 한 문장을 실행합니다.
 #
 #  비밀번호를 명령줄에 직접 쓰면 특수문자(!, $ 등) 때문에 셸에서 문제가 생길 수

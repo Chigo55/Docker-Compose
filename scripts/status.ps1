@@ -106,10 +106,13 @@ function Show-Status {
         # 컨테이너 실행 상태 (없으면 '(없음)')
         $state = if ($container) { $container.State } else { '(없음)' }
 
-        # 상세 문자열에서 (healthy) 같은 괄호 안 값을 뽑아냅니다.
+        # 헬스체크 상태는 _common.ps1 의 Get-ContainerHealth 로 통일해 읽습니다.
+        # (start.ps1 -Wait 의 Wait-Healthy 와 같은 판정 로직을 공유합니다.)
+        # 실행 중일 때만 조회하고, 헬스체크가 없거나(none) 컨테이너가 없으면(missing) '-'.
         $health = '-'
-        if ($container -and $container.Status -match '\((healthy|unhealthy|health: starting)\)') {
-            $health = $Matches[1]
+        if ($container -and $container.State -eq 'running') {
+            $h = Get-ContainerHealth -Container $instance.Name
+            if ($h -notin @('none', 'missing')) { $health = $h }
         }
 
         # 실행 중일 때만 포트 접속을 확인합니다.
