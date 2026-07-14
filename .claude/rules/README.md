@@ -16,3 +16,4 @@
 | [secrets.md](secrets.md) | SA 비밀번호 — 정책 · Git 제외 · `$$` 금지 |
 | [images-restart.md](images-restart.md) | 이미지/sqlcmd 경로 · restart 변경 반영 |
 | [authoring.md](authoring.md) | 새 스크립트 작성 · compose 직접 실행 |
+| [workflow.md](workflow.md) | 작업 흐름 — worktree·PR·CI 게이트, 로드맵/버그는 GitHub 으로 추적 |

@@ -63,6 +63,10 @@
 .EXAMPLE
     .\scripts\backup.ps1 -RetentionDays 0
     오래된 백업 자동 삭제를 하지 않습니다.
+
+.EXAMPLE
+    .\scripts\backup.ps1 -Database MyDb -NotifyWebhook $env:TEAMS_WEBHOOK
+    백업 후 결과 요약(성공/실패/건너뜀)을 Teams/Slack webhook 으로 보냅니다(무인 운영 알림).
 #>
 [CmdletBinding()]
 param(
@@ -74,7 +78,8 @@ param(
     [int]$RetentionDays = -1,     # 보관 일수. -1 이면 .env 값 사용, 0 이면 자동 삭제 안 함
     [switch]$CopyOnly,            # 붙이면: 백업 체인에 영향 없는 복사 전용 백업
     [switch]$Verify,              # 붙이면: 백업 후 무결성 검증
-    [switch]$NoCompression        # 붙이면: 압축 없이 백업
+    [switch]$NoCompression,       # 붙이면: 압축 없이 백업
+    [string]$NotifyWebhook        # 값을 주면: 백업 요약을 이 webhook(Teams/Slack)으로 전송
 )
 
 $ErrorActionPreference = 'Stop'
@@ -189,6 +194,27 @@ WITH $($withOptions -join ', '), NAME = N'$Database $($typeInfo.Label)';
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+#  Send-BackupNotification : 백업 요약을 webhook 으로 보냅니다.
+#  Teams·Slack 인커밍 webhook 모두 {"text": "..."} 페이로드를 받습니다.
+#  알림 실패가 백업 결과(종료 코드)를 바꾸면 안 되므로, 실패해도 경고만 남깁니다.
+# ═══════════════════════════════════════════════════════════════════════════
+function Send-BackupNotification {
+    param(
+        [Parameter(Mandatory)][string]$Url,
+        [Parameter(Mandatory)][string]$Message
+    )
+    try {
+        $body  = @{ text = $Message } | ConvertTo-Json -Compress
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($body)   # 한글이 깨지지 않게 UTF-8 로 전송
+        Invoke-RestMethod -Uri $Url -Method Post -ContentType 'application/json; charset=utf-8' -Body $bytes | Out-Null
+        Write-Host '  webhook 알림 전송함.' -ForegroundColor DarkGray
+    } catch {
+        Write-Host ("  webhook 알림 실패(무시): {0}" -f $_.Exception.Message) -ForegroundColor Yellow
+    }
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 #  여기서부터 메인 흐름
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -288,15 +314,25 @@ if ($RetentionDays -gt 0) {
 Write-Host "`n=== 백업 결과 ===" -ForegroundColor Cyan
 $results | Format-Table -AutoSize
 
-$failed = @($results | Where-Object { $_.Result -eq 'FAIL' })
+$failed  = @($results | Where-Object { $_.Result -eq 'FAIL' })
+$ok      = @($results | Where-Object { $_.Result -eq 'OK' })
+$skipped = @($results | Where-Object { $_.Result -eq 'SKIP' })
+
+# ── (선택) webhook 알림: 성공·실패 모두 요약을 보냅니다(무인 운영에서 결과 능동 확인). ──
+# exit 1 보다 먼저 보내야 실패 시에도 알림이 나갑니다.
+if ($NotifyWebhook) {
+    $status  = if ($failed.Count -gt 0) { 'FAILED' } else { 'OK' }
+    $summary = "[MSSQL Farm 백업 {0}] DB={1} Type={2} · 성공 {3} / 실패 {4} / 건너뜀 {5}" -f `
+                $status, $Database, $Type, $ok.Count, $failed.Count, $skipped.Count
+    if ($failed.Count -gt 0) { $summary += ("  실패: {0}" -f (($failed.Instance) -join ', ')) }
+    Send-BackupNotification -Url $NotifyWebhook -Message $summary
+}
+
+if ($skipped.Count -gt 0) {
+    Write-Host ("건너뜀 {0}건: {1}" -f $skipped.Count, (($skipped.Instance) -join ', ')) -ForegroundColor Yellow
+}
 if ($failed.Count -gt 0) {
     Write-Host ("실패 {0}건: {1}" -f $failed.Count, (($failed.Instance) -join ', ')) -ForegroundColor Red
     exit 1   # 스케줄러가 실패를 감지할 수 있도록 0 이 아닌 코드로 종료
-}
-
-$ok      = @($results | Where-Object { $_.Result -eq 'OK' })
-$skipped = @($results | Where-Object { $_.Result -eq 'SKIP' })
-if ($skipped.Count -gt 0) {
-    Write-Host ("건너뜀 {0}건: {1}" -f $skipped.Count, (($skipped.Instance) -join ', ')) -ForegroundColor Yellow
 }
 Write-Host ("성공 {0}건{1}." -f $ok.Count, $(if ($skipped.Count) { " (건너뜀 $($skipped.Count)건)" } else { '' })) -ForegroundColor Green

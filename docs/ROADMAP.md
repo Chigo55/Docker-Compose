@@ -1,5 +1,9 @@
 # 로드맵 — 추가하면 좋을 기능
 
+> ⚠️ **이 문서는 동결(archived)되었습니다.** 로드맵의 단일 소스는 GitHub Project
+> **[SQL Server Farm 로드맵](https://github.com/users/Chigo55/projects/4)** 과 `roadmap` 라벨 이슈입니다.
+> 신규 항목 등록·상태 갱신은 모두 Project에서 하고, 이 파일은 초기 스냅샷으로만 남깁니다.
+
 현재 `scripts/`는 라이프사이클(start/stop/restart/down), 관찰(status/logs),
 데이터(backup/restore), 실행(query), 점검(doctor)을 갖췄고, 저장소 편집용 내부 개발
 루프(check/test — 린트 + 단위 테스트)도 있습니다. 이 문서는 **다음에 무엇을 추가하면
