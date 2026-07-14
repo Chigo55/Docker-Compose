@@ -4,6 +4,16 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를, 버전은
 [유의적 버전(SemVer)](https://semver.org/lang/ko/)을 따릅니다.
 
+## [1.1.1] - 2026-07-14
+
+CI 워크플로 안정화 패치. 스크립트/운영 동작 변경은 없습니다.
+
+### 수정 (Fixed)
+- CI: `run:` 블록을 ASCII 전용으로 변경했습니다. GitHub 이 만드는 BOM 없는 임시 스크립트를 windows-latest 의 Windows PowerShell 5.1 이 ANSI 로 오독해, 블록 안 한글이 깨지며 파싱이 실패(`Missing closing ')'`)하던 문제를 해결했습니다.
+
+### 변경 (Changed)
+- CI: `actions/checkout@v4` → `@v5` (Node 20 지원 종료 대응).
+
 ## [1.1.0] - 2026-07-14
 
 v1.0 이후의 하위 호환 기능 추가와 개발/CI 정비를 모읍니다. 기존 명령의 기본 동작은 그대로입니다.
@@ -29,5 +39,6 @@ v1.0 이후의 하위 호환 기능 추가와 개발/CI 정비를 모읍니다. 
 - 관리 스크립트: `start` / `stop` / `restart` / `down` / `status` / `logs` / `query` / `backup` / `restore` / `doctor`.
 - `.env` 단일 설정 소스 + 인스턴스 자동 발견, 공용 라이브러리 `scripts/lib/_common.ps1`.
 
+[1.1.1]: https://github.com/Chigo55/Docker-Compose/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Chigo55/Docker-Compose/releases/tag/v1.1.0
 [1.0]: https://github.com/Chigo55/Docker-Compose/releases/tag/v1.0
