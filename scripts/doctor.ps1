@@ -301,3 +301,4 @@ if ($script:nFail -eq 0 -and $script:nWarn -eq 0) {
 }
 
 if ($script:nFail -gt 0) { exit 1 }   # 오류가 있으면 자동화가 감지할 수 있도록
+exit 0                                # 성공: 마지막 외부 명령($LASTEXITCODE, 예: Docker 꺼짐 시 docker info)의 종료코드가 새어나가지 않도록 명시
