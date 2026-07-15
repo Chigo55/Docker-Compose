@@ -16,14 +16,18 @@ mssql-farm/
 │  ├─ lib/
 │  │  ├─ _common.ps1         공통 함수 모음 (ops, 직접 실행하지 않음)
 │  │  └─ _devtools.ps1       개발 루프 전용 헬퍼 (직접 실행하지 않음)
-│  ├─ start.ps1              기동 (데이터 폴더 자동 생성)
+│  ├─ start.ps1             기동 (데이터 폴더 자동 생성)
 │  ├─ stop.ps1              정지 (컨테이너 유지)
 │  ├─ restart.ps1           재시작
 │  ├─ status.ps1            상태 확인
+│  ├─ report.ps1            farm 상태 HTML 리포트 (읽기 전용)
 │  ├─ logs.ps1              로그 조회
 │  ├─ query.ps1             여러 인스턴스에 T-SQL 일괄 실행
-│  ├─ backup.ps1            전 인스턴스 DB 백업
+│  ├─ shell.ps1             대화형 sqlcmd 세션 열기
+│  ├─ backup.ps1            전 인스턴스 DB 백업 (Full/Diff/Log)
 │  ├─ restore.ps1           백업(.bak) 복원 (backup 의 짝)
+│  ├─ copy-db.ps1           인스턴스 간 DB 복제 (backup+restore)
+│  ├─ rotate-password.ps1   전 인스턴스 SA 비밀번호 회전
 │  ├─ doctor.ps1            기동 전 .env/compose 규약 점검
 │  ├─ down.ps1              컨테이너/네트워크 제거 (데이터 보존)
 │  ├─ check.ps1             [개발] 린트 + doctor (+ -Test / -Watch)
@@ -113,6 +117,16 @@ Copy-Item .\compose\.env.example .\compose\.env
 .\scripts\status.ps1 -NoSize     # 용량 계산 생략 (빠름)
 ```
 
+### report.ps1 — farm 상태 HTML 리포트 (읽기 전용)
+
+인스턴스 상태·최근 백업·DB 인벤토리를 한 장의 HTML로 모아 저장합니다. 아무것도 바꾸지 않는 조회 전용이라, 스케줄러로 주기 생성해 두고 브라우저로 farm 현황을 확인하는 용도로 좋습니다.
+
+```powershell
+.\scripts\report.ps1                                             # <DATA_ROOT>\_report\farm_<시각>.html 로 저장
+.\scripts\report.ps1 -OutFile C:\docker\_report\farm.html -Open   # 경로 지정 + 브라우저로 열기
+.\scripts\report.ps1 -NoSize                                     # 데이터 용량 계산 생략 (빠름)
+```
+
 ### logs.ps1 — 로그
 ```powershell
 .\scripts\logs.ps1                     # 전체, 최근 100줄
@@ -149,7 +163,7 @@ Copy-Item .\compose\.env.example .\compose\.env
 
 ### backup.ps1 — 백업
 
-모든 인스턴스에 **같은 이름의 DB**가 있다는 전제로, 각 컨테이너 안에서 `BACKUP DATABASE`를 실행한 뒤 `.bak` 파일을 호스트로 꺼내옵니다.
+모든 인스턴스에 **같은 이름의 DB**가 있다는 전제로, 각 컨테이너 안에서 `BACKUP DATABASE`를 실행한 뒤 `.bak` 파일을 호스트로 꺼내옵니다. 백업 유형은 `-Type Full`(기본)·`Diff`(차등)·`Log`(트랜잭션 로그) 중에서 고릅니다.
 
 ```powershell
 .\scripts\backup.ps1 -Database MyDb             # DB 이름 지정
@@ -157,6 +171,9 @@ Copy-Item .\compose\.env.example .\compose\.env
 .\scripts\backup.ps1 -Service db2019c,db2022e    # 일부 인스턴스만
 .\scripts\backup.ps1 -Verify                     # 백업 직후 RESTORE VERIFYONLY 검증
 .\scripts\backup.ps1 -CopyOnly                   # 기존 백업 체인에 영향 없이
+.\scripts\backup.ps1 -Type Diff                  # 차등 백업 (직전 전체 백업 이후 변경분)
+.\scripts\backup.ps1 -Type Log                   # 트랜잭션 로그 백업
+.\scripts\backup.ps1 -NotifyWebhook <URL>        # 백업 요약을 Teams/Slack 웹훅으로 전송
 .\scripts\backup.ps1 -RetentionDays 0            # 오래된 백업 자동 삭제 끄기
 ```
 
@@ -201,12 +218,25 @@ schtasks /create /tn "MSSQL Farm Backup" /sc daily /st 02:00 /rl highest `
 .\scripts\restore.ps1 -Database MyDb                            # 전체 인스턴스에 각자의 최신 백업 복원
 .\scripts\restore.ps1 -Service db2022b -BackupFile "C:\docker\_backup\Db2022B\MyDb_20260101_020000.bak"
 .\scripts\restore.ps1 -Service db2019c -Database MyDb -NoRecovery  # 이후 로그 백업을 이어 복원 (RESTORING 유지)
+.\scripts\restore.ps1 -Service db2019c -Database MyDb -Chain       # 최신 전체->차등->로그 체인 자동 복원
 .\scripts\restore.ps1 -Service db2019c -Database MyDb -Force        # 확인 프롬프트 없이
 ```
 
-복원은 대상 DB를 **덮어쓰는 파괴적 작업**이므로 `-Force`가 없으면 먼저 확인합니다. 한 인스턴스가 실패해도 나머지는 계속 진행하고, 실패가 있으면 종료 코드 1을 반환합니다. `-BackupFile`은 파일 하나를 뜻하므로 `-Service`로 인스턴스를 하나만 지정했을 때만 씁니다.
+복원은 대상 DB를 **덮어쓰는 파괴적 작업**이므로 `-Force`가 없으면 먼저 확인합니다. 한 인스턴스가 실패해도 나머지는 계속 진행하고, 실패가 있으면 종료 코드 1을 반환합니다. `-BackupFile`은 파일 하나를 뜻하므로 `-Service`로 인스턴스를 하나만 지정했을 때만 씁니다. `-Chain`은 `backup.ps1 -Type Diff/Log`로 만든 차등·로그 백업을 최신 전체 백업부터 순서대로 이어 복원합니다(중간 단계는 자동으로 `NORECOVERY`).
 
 > 자동 복원은 데이터(`D`)·로그(`L`) 파일만 처리합니다. FILESTREAM 등 다른 유형이 있으면 중단하고 수동 복원을 안내합니다.
+
+### copy-db.ps1 — 인스턴스 간 DB 복제
+
+`backup.ps1`(copy-only 전체 백업) + `restore.ps1`을 조합해, 한 인스턴스의 DB를 다른 인스턴스로 한 번에 복제합니다. copy-only라 원본의 백업 체인(차등 기준 등)에는 영향을 주지 않습니다.
+
+```powershell
+.\scripts\copy-db.ps1 -From db2022a -To db2022b -Database MyDb                        # 같은 이름으로 복제
+.\scripts\copy-db.ps1 -From db2022a -To db2022b -Database MyDb -AsDatabase MyDb_stg   # 다른 이름으로
+.\scripts\copy-db.ps1 -From db2022a -To db2022a -Database MyDb -AsDatabase MyDb_clone # 같은 인스턴스 안에서 클론
+```
+
+`-To`의 대상 DB를 덮어쓰는 **파괴적 작업**이라 `-Force`가 없으면 먼저 확인합니다. 전송에 쓴 `.bak`은 `<BACKUP_ROOT>\<From 컨테이너>\`에 남습니다(보관 정책이 정리).
 
 ### query.ps1 — 여러 인스턴스에 T-SQL 일괄 실행
 
@@ -220,6 +250,28 @@ schtasks /create /tn "MSSQL Farm Backup" /sc daily /st 02:00 /rl highest `
 ```
 
 읽기 쿼리에 권장합니다. 데이터를 바꾸는 문장(`UPDATE`/`DROP` 등)도 실행되므로, 전체 대상으로 파괴적 쿼리를 돌릴 때는 `-Service`로 범위를 좁히세요. 꺼진 인스턴스는 `DOWN`으로 표시되고, 하나라도 성공하지 못하면 종료 코드 1을 반환합니다.
+
+### shell.ps1 — 대화형 sqlcmd 세션
+
+임시 확인·수정을 하려고 매번 긴 `docker exec -it ... sqlcmd ...`를 치는 수고 없이, 서비스 키 하나로 해당 인스턴스에 sqlcmd 프롬프트(`1>`)를 바로 엽니다. 버전(2019/2022)과 비밀번호는 `_common.ps1`이 자동 처리하며, `-P` 대신 `SQLCMDPASSWORD` 환경변수로 접속합니다.
+
+```powershell
+.\scripts\shell.ps1 -Service db2019c              # db2019c 에 master 로 접속
+.\scripts\shell.ps1 db2022b -Database MyDb        # 서비스 키는 첫 인자로도 받음, 기본 DB 지정
+```
+
+대화형 세션이라 대상은 **정확히 하나**여야 합니다. 인스턴스가 2개 이상이면 `-Service`로 하나를 지정하세요. 세션 종료는 프롬프트에서 `EXIT`/`QUIT`(또는 Ctrl+C).
+
+### rotate-password.ps1 — SA 비밀번호 회전
+
+모든 인스턴스는 `.env`의 `MSSQL_SA_PASSWORD` 하나를 공유하므로, 회전은 farm 전체에 대해 **모두 성공 또는 모두 원복**으로만 처리합니다(일부만 바뀌면 `.env`와 어긋나 인증이 조용히 깨집니다). 전 인스턴스에 `ALTER LOGIN [sa]`를 적용한 뒤 `.env`를 갱신하고, 하나라도 실패하면 이미 바꾼 인스턴스를 이전 값으로 되돌립니다. 시작 전 `.env`는 `compose/.env.bak.<시각>`으로 백업됩니다.
+
+```powershell
+.\scripts\rotate-password.ps1            # 새 비밀번호를 두 번 입력받아 적용
+.\scripts\rotate-password.ps1 -Generate  # 정책 충족 무작위 비밀번호 생성 후 회전
+```
+
+되돌리기 어려운 farm 전체 작업이라 `-Force`가 없으면 먼저 확인합니다. **실제 환경에 쓰기 전 테스트 환경에서 검증하세요.** 전제로 모든 인스턴스가 실행 중이어야 하며, 새 비밀번호는 정책(8자 이상 + 3종)과 금지 문자($ " \ 그리고 백틱) 검사를 통과해야 합니다.
 
 ### doctor.ps1 — 기동 전 규약 점검
 
@@ -272,7 +324,7 @@ schtasks /create /tn "MSSQL Farm Backup" /sc daily /st 02:00 /rl highest `
 | 데이터 | `DATA_ROOT` | 데이터 루트 (Windows도 슬래시 `/` 사용) |
 | 인스턴스별 | `<PREFIX>_NAME`, `_PORT`, `_DIR` | 컨테이너명 / 호스트 포트 / 데이터 폴더 |
 
-선택 항목(`MSSQL_MEMORY_LIMIT_MB`, `MSSQL_AGENT_ENABLED`)은 주석 처리되어 있습니다. 쓰려면 `compose/.env`와 `compose/compose.yml`의 대응 줄을 **둘 다** 해제하세요. 빈 값으로 넘어가면 SQL Server가 기동에 실패할 수 있습니다.
+선택 항목(`MSSQL_MEMORY_LIMIT_MB`, `MSSQL_AGENT_ENABLED`)은 주석 처리되어 있습니다. 쓰려면 `compose/.env`와 `compose/compose.yml`의 대응 줄을 **둘 다** 해제하세요. 빈 값으로 넘어가면 SQL Server가 기동에 실패할 수 있습니다. 에러로그·인증서를 호스트에 보존하는 `MOUNT_LOG_SECRETS`도 같은 '양쪽 함께 켜기' 항목입니다(위 운영 메모의 마운트 범위 참고).
 
 `.env` 값에 `$`가 포함되면 `$$`로 이스케이프해야 하고, 설명은 값 옆이 아니라 윗줄에 답니다.
 
@@ -319,7 +371,7 @@ Pop-Location
 
 **백업** — `.\scripts\backup.ps1`을 쓰세요. 데이터 파일(`.mdf`)을 직접 복사하면 실행 중 인스턴스에서는 손상된 사본이 나옵니다.
 
-**마운트 범위** — 현재 `/var/opt/mssql/data`만 마운트합니다. 에러로그(`/var/opt/mssql/log`)와 인증서(`/var/opt/mssql/secrets`)는 컨테이너와 함께 사라집니다. 보존이 필요하면 각 서비스 `volumes`에 추가하세요.
+**마운트 범위** — 기본은 `/var/opt/mssql/data`만 마운트하므로 에러로그(`/var/opt/mssql/log`)·인증서(`/var/opt/mssql/secrets`)는 컨테이너와 함께 사라집니다. 보존하려면 `compose/.env`의 `MOUNT_LOG_SECRETS=true`와 `compose/compose.yml` 각 서비스 `volumes`의 log/secrets 마운트 2줄 주석을 **함께** 해제하세요. 그러면 `start.ps1`이 `<DATA_ROOT>/<_DIR>/log`·`secrets` 폴더를 만들어 호스트에 보존합니다.
 
 **비밀번호** — `compose/.env`에 평문으로 들어갑니다. 실제 값이 든 `.env`는 `.gitignore`로 제외되어 있고, 팀에는 `compose/.env.example`만 공유합니다.
 
@@ -345,9 +397,8 @@ docker exec Db2019C ls /opt/mssql-tools*/bin/
 
 ## 향후 계획
 
-추가하면 좋을 기능(healthy 대기, DB 인벤토리, 대화형 셸, 차등/로그 백업, 롤링 업데이트,
-비밀번호 회전 등)을 우선순위·근거와 함께 [ROADMAP.md](./ROADMAP.md)에 정리해 두었습니다.
-단위 테스트·린트·GitHub Actions CI 는 위의 [내부 개발 루프](#내부-개발-루프-저장소를-고칠-때)와 `.github/workflows/ci.yml` 로 이미 갖췄습니다. 로드맵의 단일 소스는 GitHub Project(위 [ROADMAP.md](./ROADMAP.md) 상단 배너 참고)입니다.
+대화형 셸(`shell.ps1`)·차등/로그 백업(`backup.ps1 -Type`)·비밀번호 회전(`rotate-password.ps1`)·인스턴스 간 복제(`copy-db.ps1`)·farm 리포트(`report.ps1`)는 이미 구현되어 위에 정리했습니다.
+남은 계획(예: DB 인벤토리 `databases.ps1`, 이미지 롤링 업데이트 `update.ps1`)의 단일 소스는 GitHub Project입니다([ROADMAP.md](./ROADMAP.md)는 초기 스냅샷이라 동결). 단위 테스트·린트·GitHub Actions CI 는 위의 [내부 개발 루프](#내부-개발-루프-저장소를-고칠-때)와 `.github/workflows/ci.yml` 로 이미 갖췄습니다.
 
 ---
 
