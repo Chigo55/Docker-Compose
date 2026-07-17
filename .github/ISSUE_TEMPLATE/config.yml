@@ -1,1 +1,6 @@
 blank_issues_enabled: true
+
+contact_links:
+  - name: 보안 취약점 신고 (비공개)
+    url: https://github.com/Chigo55/Docker-Compose/security/advisories/new
+    about: 취약점은 공개 이슈가 아니라 Security 탭의 비공개 신고로 접수합니다. 신고 전 SECURITY.md 의 "의도된 설계"·범위를 확인해 주세요.

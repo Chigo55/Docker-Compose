@@ -405,6 +405,12 @@ docker exec Db2019C ls /opt/mssql-tools*/bin/
 
 ---
 
+## 보안
+
+취약점을 발견하면 **공개 이슈가 아니라** [Security 탭의 비공개 신고](https://github.com/Chigo55/Docker-Compose/security/advisories/new)로 알려주세요. 신고 범위와 이 저장소의 의도된 설계(평문 `.env` 등 — 오신고가 잦은 부분)는 [SECURITY.md](../.github/SECURITY.md)에 정리해 두었습니다.
+
+---
+
 ## 라이선스
 
 [MIT License](../LICENSE) © 2026 정인호 (Inho Jeong)
