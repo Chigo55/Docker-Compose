@@ -42,8 +42,7 @@ mssql-farm/
 │  ├─ .env                  모든 "설정값" — 여기만 고치면 됩니다 (Git 제외)
 │  └─ .env.example          .env 의 견본 (비밀번호 비움, 팀 공유용)
 ├─ docs/
-│  ├─ README.md             이 문서
-│  └─ ROADMAP.md            로드맵 초기 스냅샷 — 동결 (최신 상태는 GitHub Project)
+│  └─ README.md             이 문서
 ├─ .github/                 CI 워크플로 · 이슈/PR 템플릿 · dependabot
 ├─ .claude/                 설계 문서 (adr/ · rules/ · CONVENTIONS.md)
 ├─ .gitignore
@@ -405,7 +404,7 @@ docker exec Db2019C ls /opt/mssql-tools*/bin/
 ## 향후 계획
 
 대화형 셸(`shell.ps1`)·차등/로그 백업(`backup.ps1 -Type`)·비밀번호 회전(`rotate-password.ps1`)·인스턴스 간 복제(`copy-db.ps1`)·farm 리포트(`report.ps1`)는 이미 구현되어 위에 정리했습니다.
-남은 계획(예: DB 인벤토리 `databases.ps1`, 이미지 롤링 업데이트 `update.ps1`)의 단일 소스는 GitHub Project입니다([ROADMAP.md](./ROADMAP.md)는 초기 스냅샷이라 동결). 단위 테스트·린트·GitHub Actions CI 는 위의 [내부 개발 루프](#내부-개발-루프-저장소를-고칠-때)와 `.github/workflows/ci.yml` 로 이미 갖췄습니다.
+남은 계획(예: DB 인벤토리 `databases.ps1`, 이미지 롤링 업데이트 `update.ps1`)의 단일 소스는 [GitHub Project](https://github.com/users/Chigo55/projects/4)와 `roadmap` 라벨 이슈입니다. 단위 테스트·린트·GitHub Actions CI 는 위의 [내부 개발 루프](#내부-개발-루프-저장소를-고칠-때)와 `.github/workflows/ci.yml` 로 이미 갖췄습니다.
 
 ---
 

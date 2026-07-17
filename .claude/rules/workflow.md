@@ -33,5 +33,5 @@ git worktree remove ..\wt-<주제>                       # 병합 후 정리
 [ADR-0016](../adr/0016-track-in-github-not-docs.md).
 
 - **로드맵·추후 업데이트** → GitHub Project "SQL Server Farm 로드맵"(#4) + `roadmap` 라벨 이슈.
-  `docs/ROADMAP.md` 는 동결이라 갱신하지 않는다.
+  저장소 안에 로드맵 문서는 두지 않는다([ADR-0019](../adr/0019-remove-frozen-roadmap.md)).
 - **작업 중 발견한 범위 밖 버그·위험** → 현재 작업에 섞지 말고 `gh issue create` 로 등록한다.
