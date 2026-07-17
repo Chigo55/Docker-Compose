@@ -43,3 +43,4 @@
 | [0016](0016-track-in-github-not-docs.md) | 추적은 GitHub(Project·Issues)로 | 로드맵·버그를 문서 대신 Project #4·이슈로 |
 | [0017](0017-ruleset-enforced-main-protection.md) | main 보호를 Ruleset 으로 서버 강제 | 관례 → 강제. 필수 체크는 CI job 이름에 묶임 |
 | [0018](0018-wiki-for-learning-repo-for-code.md) | Wiki 는 학습, 저장소는 코드에 붙은 문서 | 판별 기준 = "코드가 바뀌면 같이 늙는가" |
+| [0019](0019-remove-frozen-roadmap.md) | 동결된 `docs/ROADMAP.md` 삭제 | 역사 보존은 git 이 한다 — ADR-0016 의 동결 조항 대체 |

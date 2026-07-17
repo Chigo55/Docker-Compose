@@ -1,7 +1,7 @@
 # ADR-0016: 로드맵·버그·위험은 문서가 아니라 GitHub(Project·Issues)로 추적한다
 
-- 상태: Accepted
-- 관련: [ADR-0015](0015-worktree-pr-github-actions.md), [ADR-0001](0001-env-single-source-of-truth.md), `docs/ROADMAP.md`
+- 상태: Accepted — 단, **`docs/ROADMAP.md` 를 동결 보존한다는 조항은 [ADR-0019](0019-remove-frozen-roadmap.md) 로 대체됨**(파일은 삭제됨). Project·Issues 를 단일 소스로 삼는 결정 자체는 유효하다.
+- 관련: [ADR-0015](0015-worktree-pr-github-actions.md), [ADR-0001](0001-env-single-source-of-truth.md), [ADR-0019](0019-remove-frozen-roadmap.md)
 
 ## 배경 (Context)
 
