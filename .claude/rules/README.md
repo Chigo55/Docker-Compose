@@ -17,3 +17,4 @@
 | [images-restart.md](images-restart.md) | 이미지/sqlcmd 경로 · restart 변경 반영 |
 | [authoring.md](authoring.md) | 새 스크립트 작성 · compose 직접 실행 |
 | [workflow.md](workflow.md) | 작업 흐름 — worktree·PR·CI 게이트, 로드맵/버그는 GitHub 으로 추적 |
+| [github.md](github.md) | GitHub 기능 지도 — ruleset·Actions 권한·dependabot·Wiki·Security 등 원격 설정 현황 |
