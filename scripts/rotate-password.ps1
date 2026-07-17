@@ -23,6 +23,10 @@
     ※ 되돌리기 어려운 farm 전체 작업입니다. -Force 가 없으면 먼저 확인합니다.
       실제 환경에 쓰기 전 반드시 테스트 환경에서 검증하세요.
 
+    ※ [미검증] 이 스크립트는 실 SQL Server 환경에서 아직 검증되지 않았습니다(#16).
+      특히 5) 롤백 경로는 정적 검토만 거쳤습니다. 회전과 롤백이 모두 실패하면 인스턴스별
+      비밀번호가 .env 와 어긋나 farm 접속이 막힙니다. #16 이 닫히면 이 고지를 지웁니다.
+
 .EXAMPLE
     .\scripts\rotate-password.ps1
     새 비밀번호를 두 번 입력받아 전 인스턴스에 적용하고 .env 를 갱신합니다.
@@ -151,6 +155,13 @@ Write-Host "`n=== sa 비밀번호 회전 ===" -ForegroundColor Cyan
 Write-Host ("  대상: {0} 개 인스턴스 (전체)" -f @($instances).Count)
 Write-Host "`n전 인스턴스의 sa 비밀번호를 바꾸고 .env 를 갱신합니다(되돌리기 어려움):" -ForegroundColor Yellow
 $instances | ForEach-Object { Write-Host ("  - {0}" -f $_.Name) }
+
+# 미검증 고지 — -Force 로 프롬프트를 건너뛰는 자동화 실행에서도 보이도록 if 밖에 둡니다.
+# #16(실 SQL Server 통합 검증)이 닫히면 이 블록과 help 의 같은 고지를 지웁니다.
+Write-Host "`n[미검증] 이 스크립트는 실 SQL Server 환경에서 아직 검증되지 않았습니다(#16)." -ForegroundColor Yellow
+Write-Host '  롤백 경로는 정적 검토만 거쳤습니다. 회전과 롤백이 모두 실패하면 인스턴스별' -ForegroundColor Yellow
+Write-Host '  비밀번호가 .env 와 어긋나 farm 접속이 막힙니다.' -ForegroundColor Yellow
+
 if (-not $Force) {
     $answer = Read-Host "`n계속하시겠습니까? (y/N)"
     if ($answer -notmatch '^[Yy]$') {
