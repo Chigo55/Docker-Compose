@@ -6,6 +6,9 @@ SQL Server 2019 / 2022 인스턴스 여러 개를 Docker Compose로 운영하기
 
 > 이 저장소는 Windows + PowerShell 5.1 이상 + Docker Desktop 환경을 전제로 합니다.
 
+> **Docker나 SQL Server가 처음이라면** 이 문서(옵션 레퍼런스) 대신 [Wiki 의 학습 로드맵](https://github.com/Chigo55/Docker-Compose/wiki/학습-로드맵)부터 보세요.
+> 개념 → 이 저장소의 어디에 나타나는가 → 직접 확인할 명령 순서로 정리해 두었습니다.
+
 ---
 
 ## 폴더 구조
@@ -40,7 +43,8 @@ mssql-farm/
 │  └─ .env.example          .env 의 견본 (비밀번호 비움, 팀 공유용)
 ├─ docs/
 │  ├─ README.md             이 문서
-│  └─ ROADMAP.md            추가하면 좋을 기능 로드맵 (우선순위/근거)
+│  └─ ROADMAP.md            로드맵 초기 스냅샷 — 동결 (최신 상태는 GitHub Project)
+├─ .github/                 CI 워크플로 · 이슈/PR 템플릿 · dependabot
 ├─ .claude/                 설계 문서 (adr/ · rules/ · CONVENTIONS.md)
 ├─ .gitignore
 └─ CLAUDE.md                AI 어시스턴트(Claude Code)용 저장소 가이드
@@ -303,12 +307,12 @@ schtasks /create /tn "MSSQL Farm Backup" /sc daily /st 02:00 /rl highest `
 - 오류가 하나라도 있으면 **종료 코드 1**을 반환합니다(CI/자동화 감지용).
 - **개발 모듈은 선택 의존성**입니다. 없으면 해당 단계만 건너뛰고(노란 안내), `-Install`로 부트스트랩합니다.
   테스트는 **Pester 5 이상**이 필요합니다(Windows 기본 3.4.0 은 문법이 달라 쓰지 않음).
-- 린트는 이 저장소 관례와 충돌하는 규칙(`PSAvoidUsingWriteHost`/`PSUseSingularNouns`/`PSReviewUnusedParameter`)을 제외합니다.
+- 린트는 이 저장소 관례와 충돌하는 규칙 5개를 제외합니다(제외 이유는 `check.ps1` 의 `$ExcludedRules` 주석 참고): `PSAvoidUsingWriteHost` · `PSUseSingularNouns` · `PSReviewUnusedParameter` · `PSAvoidUsingPlainTextForPassword`(평문 SA 비밀번호는 의도된 설계 — ADR-0013) · `PSUseShouldProcessForStateChangingFunctions`(수동 y/N 프롬프트 관례 — CONVENTIONS §9).
 - 단위 테스트는 Docker가 필요 없는 순수 로직(`Read-DotEnv` 파싱, `Get-Instances` 발견, `Resolve-Services` 검증)을 대상으로 합니다.
 
 > **설계 문서** — 왜 이렇게 만들었는지(ADR)·편집 규칙(RULES)·코드 규약(CONVENTIONS)은 `.claude/` 폴더에 정리되어 있습니다. 스크립트를 새로 추가하거나 고치기 전에 참고하세요.
 >
-> **기여 흐름** — 변경은 worktree 에서 만들고 PR 로 병합하며, GitHub Actions CI(`.github/workflows/ci.yml`)가 통과해야 합니다. 자세한 흐름은 [.claude/rules/workflow.md](../.claude/rules/workflow.md) 참고.
+> **기여 흐름** — 변경은 worktree 에서 만들고 PR 로 병합합니다. main 은 Ruleset 으로 보호되어 **직접 push 가 거부**되고, GitHub Actions CI(`.github/workflows/ci.yml`)가 **필수 상태 체크**라 통과해야 병합할 수 있습니다. 자세한 흐름은 [.claude/rules/workflow.md](../.claude/rules/workflow.md), 원격에 켜져 있는 GitHub 기능 전체(Actions 권한·dependabot·Security 등)는 [.claude/rules/github.md](../.claude/rules/github.md) 참고.
 
 ---
 

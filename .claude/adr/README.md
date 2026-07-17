@@ -41,3 +41,5 @@
 | [0014](0014-internal-dev-loop.md) | 내부 개발 루프(check/test)는 선택 의존성 | Pester/PSScriptAnalyzer 없으면 건너뜀, `-Install` |
 | [0015](0015-worktree-pr-github-actions.md) | worktree + PR + GitHub Actions CI | 작업은 worktree 에서, main 병합은 PR·CI 게이트로 |
 | [0016](0016-track-in-github-not-docs.md) | 추적은 GitHub(Project·Issues)로 | 로드맵·버그를 문서 대신 Project #4·이슈로 |
+| [0017](0017-ruleset-enforced-main-protection.md) | main 보호를 Ruleset 으로 서버 강제 | 관례 → 강제. 필수 체크는 CI job 이름에 묶임 |
+| [0018](0018-wiki-for-learning-repo-for-code.md) | Wiki 는 학습, 저장소는 코드에 붙은 문서 | 판별 기준 = "코드가 바뀌면 같이 늙는가" |

@@ -21,6 +21,10 @@ concurrency:
 
 jobs:
   check:
+    # 아래 job 이름은 Ruleset 'main protection' 의 필수 상태 체크 이름과 글자 그대로 묶여 있습니다.
+    # 바꾸면 ruleset 이 기다리는 체크가 영영 도착하지 않아, 실패가 아니라 '대기 중' 상태로
+    # 모든 PR 이 병합 불가가 됩니다. 바꾸려면 ruleset 의 required check 도 같은 PR 에서
+    # 함께 고치세요. (.claude/adr/0017-ruleset-enforced-main-protection.md)
     name: lint + doctor + tests (PowerShell 5.1)
     runs-on: windows-latest
 
