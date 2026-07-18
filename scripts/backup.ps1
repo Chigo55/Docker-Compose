@@ -194,27 +194,6 @@ WITH $($withOptions -join ', '), NAME = N'$Database $($typeInfo.Label)';
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  Send-BackupNotification : 백업 요약을 webhook 으로 보냅니다.
-#  Teams·Slack 인커밍 webhook 모두 {"text": "..."} 페이로드를 받습니다.
-#  알림 실패가 백업 결과(종료 코드)를 바꾸면 안 되므로, 실패해도 경고만 남깁니다.
-# ═══════════════════════════════════════════════════════════════════════════
-function Send-BackupNotification {
-    param(
-        [Parameter(Mandatory)][string]$Url,
-        [Parameter(Mandatory)][string]$Message
-    )
-    try {
-        $body  = @{ text = $Message } | ConvertTo-Json -Compress
-        $bytes = [System.Text.Encoding]::UTF8.GetBytes($body)   # 한글이 깨지지 않게 UTF-8 로 전송
-        Invoke-RestMethod -Uri $Url -Method Post -ContentType 'application/json; charset=utf-8' -Body $bytes | Out-Null
-        Write-Host '  webhook 알림 전송함.' -ForegroundColor DarkGray
-    } catch {
-        Write-Host ("  webhook 알림 실패(무시): {0}" -f $_.Exception.Message) -ForegroundColor Yellow
-    }
-}
-
-
-# ═══════════════════════════════════════════════════════════════════════════
 #  여기서부터 메인 흐름
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -325,7 +304,7 @@ if ($NotifyWebhook) {
     $summary = "[MSSQL Farm 백업 {0}] DB={1} Type={2} · 성공 {3} / 실패 {4} / 건너뜀 {5}" -f `
                 $status, $Database, $Type, $ok.Count, $failed.Count, $skipped.Count
     if ($failed.Count -gt 0) { $summary += ("  실패: {0}" -f (($failed.Instance) -join ', ')) }
-    Send-BackupNotification -Url $NotifyWebhook -Message $summary
+    Send-WebhookNotification -Url $NotifyWebhook -Message $summary
 }
 
 if ($skipped.Count -gt 0) {

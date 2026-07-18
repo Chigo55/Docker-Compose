@@ -462,3 +462,36 @@ function Invoke-Sql {
         Output  = ($output -join "`n").Trim()
     }
 }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  알림 (webhook)
+#  (백업/복원 등 배치 작업의 결과 요약을 무인 운영자에게 능동적으로 알릴 때 씁니다)
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ───────────────────────────────────────────────────────────────────────────
+#  Send-WebhookNotification : 작업 요약을 webhook 으로 보냅니다.
+#
+#  backup.ps1 · restore.ps1 이 함께 씁니다(원래 backup.ps1 안에만 있던 것을
+#  공용으로 올려 두 스크립트가 같은 전송 로직을 공유합니다).
+#  Teams·Slack 인커밍 webhook 모두 {"text": "..."} 페이로드를 받으므로,
+#  하나의 함수로 양쪽에 보낼 수 있습니다. 본문은 한글이 깨지지 않도록
+#  UTF-8 바이트로 인코딩해 전송합니다.
+#
+#  ※ 알림 전송 실패가 작업 결과(종료 코드)를 바꾸면 안 되므로, 실패해도
+#     throw 하지 않고 경고만 남깁니다(호출부의 exit 1 판정에 영향 없음).
+# ───────────────────────────────────────────────────────────────────────────
+function Send-WebhookNotification {
+    param(
+        [Parameter(Mandatory)][string]$Url,       # 보낼 대상 webhook 주소
+        [Parameter(Mandatory)][string]$Message    # 보낼 요약 문자열
+    )
+    try {
+        $body  = @{ text = $Message } | ConvertTo-Json -Compress
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($body)   # 한글이 깨지지 않게 UTF-8 로 전송
+        Invoke-RestMethod -Uri $Url -Method Post -ContentType 'application/json; charset=utf-8' -Body $bytes | Out-Null
+        Write-Host '  webhook 알림 전송함.' -ForegroundColor DarkGray
+    } catch {
+        Write-Host ("  webhook 알림 실패(무시): {0}" -f $_.Exception.Message) -ForegroundColor Yellow
+    }
+}
