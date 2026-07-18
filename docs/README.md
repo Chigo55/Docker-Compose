@@ -24,6 +24,7 @@ mssql-farm/
 │  ├─ restart.ps1           재시작
 │  ├─ status.ps1            상태 확인
 │  ├─ report.ps1            farm 상태 HTML 리포트 (읽기 전용)
+│  ├─ databases.ps1         인스턴스별 DB 인벤토리 (크기·복구모델·최근 백업, 읽기 전용)
 │  ├─ logs.ps1              로그 조회
 │  ├─ query.ps1             여러 인스턴스에 T-SQL 일괄 실행
 │  ├─ shell.ps1             대화형 sqlcmd 세션 열기
@@ -129,6 +130,19 @@ Copy-Item .\compose\.env.example .\compose\.env
 .\scripts\report.ps1 -OutFile C:\docker\_report\farm.html -Open   # 경로 지정 + 브라우저로 열기
 .\scripts\report.ps1 -NoSize                                     # 데이터 용량 계산 생략 (빠름)
 ```
+
+### databases.ps1 — DB 인벤토리 (읽기 전용)
+
+어느 인스턴스에 어떤 DB가 있고, 데이터/로그 크기·복구 모델·최근 전체 백업 시각이 어떤지 한 표로 보여 줍니다. 백업 대상 파악과 용량 계획에 씁니다. 각 인스턴스에서 `sys.databases` + `sys.master_files` + `msdb..backupset`을 조인해 조회하며, 아무것도 바꾸지 않습니다.
+
+```powershell
+.\scripts\databases.ps1                       # 전체 인스턴스의 사용자 DB 인벤토리
+.\scripts\databases.ps1 -Service db2019c      # 특정 인스턴스만
+.\scripts\databases.ps1 -Database MyDb        # 그 이름의 DB가 어느 인스턴스에 있는지
+.\scripts\databases.ps1 -IncludeSystem        # 시스템 DB(master/tempdb/model/msdb)까지 포함
+```
+
+기본은 **사용자 DB만** 보여 줍니다(시스템 DB 제외). `-Database`로 이름을 주면 시스템/사용자 구분 없이 그 DB만 추립니다. **최근 백업**은 복구의 기준선인 "전체(Full)" 백업의 최신 완료 시각이며, 이력이 없으면 `(없음)`으로 표시합니다. 꺼진 인스턴스는 조회할 수 없어 `DOWN`, 조회에 실패하면 `FAIL`로 표시하고, 하나라도 성공하지 못하면 종료 코드 1을 반환합니다(스케줄러 감지용).
 
 ### logs.ps1 — 로그
 ```powershell
@@ -404,8 +418,8 @@ docker exec Db2019C ls /opt/mssql-tools*/bin/
 
 ## 향후 계획
 
-대화형 셸(`shell.ps1`)·차등/로그 백업(`backup.ps1 -Type`)·비밀번호 회전(`rotate-password.ps1`)·인스턴스 간 복제(`copy-db.ps1`)·farm 리포트(`report.ps1`)는 이미 구현되어 위에 정리했습니다.
-남은 계획(예: DB 인벤토리 `databases.ps1`, 이미지 롤링 업데이트 `update.ps1`)의 단일 소스는 [GitHub Project](https://github.com/users/Chigo55/projects/4)와 `roadmap` 라벨 이슈입니다. 단위 테스트·린트·GitHub Actions CI 는 위의 [내부 개발 루프](#내부-개발-루프-저장소를-고칠-때)와 `.github/workflows/ci.yml` 로 이미 갖췄습니다.
+대화형 셸(`shell.ps1`)·차등/로그 백업(`backup.ps1 -Type`)·비밀번호 회전(`rotate-password.ps1`)·인스턴스 간 복제(`copy-db.ps1`)·farm 리포트(`report.ps1`)·DB 인벤토리(`databases.ps1`)는 이미 구현되어 위에 정리했습니다.
+남은 계획(예: 이미지 롤링 업데이트 `update.ps1`)의 단일 소스는 [GitHub Project](https://github.com/users/Chigo55/projects/4)와 `roadmap` 라벨 이슈입니다. 단위 테스트·린트·GitHub Actions CI 는 위의 [내부 개발 루프](#내부-개발-루프-저장소를-고칠-때)와 `.github/workflows/ci.yml` 로 이미 갖췄습니다.
 
 ---
 

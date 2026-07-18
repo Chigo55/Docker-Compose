@@ -28,7 +28,7 @@ clone 해서는 보이지 않지만 작업을 막는 것들이 있습니다. 전
 scripts/            관리 스크립트 (여기서 실행)
   lib/_common.ps1   공통 함수 모음 (ops, 직접 실행하지 않음)
   lib/_devtools.ps1 개발 루프 전용 헬퍼 (모듈 확보/파일 감시, 직접 실행하지 않음)
-  *.ps1             start/stop/restart/status/report/logs/query/shell/backup/restore/copy-db/rotate-password/doctor/down
+  *.ps1             start/stop/restart/status/report/databases/logs/query/shell/backup/restore/copy-db/rotate-password/doctor/down
   check.ps1         내부 개발 루프: 린트 + doctor(+compose 렌더링) [+ -Test]
   test.ps1          Pester 단위 테스트 실행 (Pester 5+ 필요)
 tests/
