@@ -20,5 +20,6 @@
 - [ ] `ci.yml` 의 job `name:` 을 바꿨다면 Ruleset 의 **필수 상태 체크 이름도 함께** 고쳤다 (안 고치면 모든 PR 이 병합 불가로 멈춤 — [ADR-0017](https://github.com/Chigo55/Docker-Compose/blob/main/.claude/adr/0017-ruleset-enforced-main-protection.md))
 - [ ] 새 워크플로가 PR·이슈에 무언가를 쓴다면 `permissions:` 를 명시했다 (저장소 기본값은 `read` — 없으면 조용히 아무것도 안 남음)
 - [ ] 순수 로직을 추가/수정했다면 `tests/` 에 테스트를 동반했다
+- [ ] 릴리스에 남을 변경이면 **카테고리 라벨**(`enhancement`/`bug`/`documentation`/`refactor`/`removed`/`dependencies` 등)을 붙였다 (릴리스 노트 자동 분류 — [ADR-0020](https://github.com/Chigo55/Docker-Compose/blob/main/.claude/adr/0020-generate-release-notes-from-prs.md))
 
 Closes #

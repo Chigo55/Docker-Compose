@@ -153,4 +153,4 @@ Push-Location .\compose; docker compose config; Pop-Location
 - 새 로직은 새 스크립트에 하드코딩하지 말고 `scripts/lib/_common.ps1`의 자동 발견/헬퍼(`Get-Instances`, `Get-TargetInstances`, `Invoke-Compose`, `Invoke-Sql` 등)를 재사용하세요.
 - 사용자 대면 출력은 한국어이며 `Write-Host -ForegroundColor`로 단계(Cyan 헤더, Green 성공, Yellow 경고, Red 실패, DarkGray 부가)를 구분합니다.
 - 배치 작업(`backup.ps1`)은 인스턴스 하나가 실패해도 나머지를 계속 진행하고, 마지막에 요약 표를 낸 뒤 실패가 있으면 `exit 1`을 반환합니다(스케줄러 감지용). 새 배치 스크립트도 이 패턴을 따르세요.
-- 릴리스: 하위호환 기능 추가는 마이너 범프 — `CHANGELOG.md`(Keep a Changelog) 갱신 + annotated 태그 `vX.Y.Z` 생성 + `gh release`.
+- 릴리스: 하위호환 기능 추가는 마이너 범프. **릴리스 노트는 수기 `CHANGELOG.md` 가 아니라 병합된 PR 에서 자동 생성**합니다 — annotated 태그 `vX.Y.Z` 를 만들고 `gh release create vX.Y.Z --generate-notes` 로 `.github/release.yml`(라벨→카테고리) 기준 노트를 냅니다([ADR-0020](.claude/adr/0020-generate-release-notes-from-prs.md)). `CHANGELOG.md` 는 v1.1.1 까지의 과거 이력만 담고 갱신하지 않으며, `[Unreleased]` 수기 관리는 폐지했습니다(병렬 PR 충돌 제거). PR 에는 카테고리 라벨(`enhancement`/`bug`/`documentation`/`refactor`/`removed` 등)을 붙여야 노트가 올바른 섹션으로 정렬됩니다.

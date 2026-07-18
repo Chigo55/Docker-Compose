@@ -50,7 +50,8 @@
   (저장소 고유의 함정을 체크리스트로 — BOM·ASCII·양쪽 켜기·3종 세트).
 - 이슈 템플릿 선택 화면에는 `config.yml` 의 **contact_links** 로 보안 신고 창구가 붙어 있다 —
   취약점은 공개 이슈가 아니라 Security 탭의 비공개 신고로 간다(아래 [Security](#security)).
-- 라벨: 기본 라벨 + `roadmap`(Project 항목) · `refactor` · `test` · `dependencies`/`github_actions`(dependabot 자동 부여).
+- 라벨: 기본 라벨 + `roadmap`(Project 항목) · `refactor` · `removed` · `test` · `dependencies`/`github_actions`(dependabot 자동 부여).
+  이 중 **카테고리 라벨은 릴리스 노트 분류에도 쓰인다**(`enhancement`/`bug`/`documentation`/`refactor`/`removed`/의존성 → [`.github/release.yml`](../../.github/release.yml), [ADR-0020](../adr/0020-generate-release-notes-from-prs.md)). `removed` 는 이때 신설한 유일한 라벨이다.
 - 병합 후 **원격 브랜치는 자동 삭제**된다(`delete_branch_on_merge`). 로컬 worktree 정리는 수동이다.
 - 범위 밖에서 발견한 버그·위험은 커밋에 섞지 않고 `gh issue create` 로 분리한다([ADR-0016](../adr/0016-track-in-github-not-docs.md)).
 
@@ -87,5 +88,8 @@ push protection 의 한계는 [rules/secrets.md](secrets.md) 를 볼 것 — SA 
 - **Discussions 는 켜져 있지만 비어 있다**(기본 카테고리 6개, 글 0건). 정리와 릴리스 연결
   (`gh release create --discussion-category Announcements`)은 [#26](https://github.com/Chigo55/Docker-Compose/issues/26) 에서 추적 중이다.
   현재로선 논의 창구가 아니라 **이슈**를 쓴다.
-- Releases: 태그 `vX.Y.Z`(annotated) + `gh release` + `CHANGELOG.md`(Keep a Changelog).
-  최신은 v1.1.1 — 절차는 [CLAUDE.md](../../CLAUDE.md) 릴리스 항목.
+- Releases: annotated 태그 `vX.Y.Z` + `gh release create vX.Y.Z --generate-notes`. **릴리스 노트는
+  병합된 PR 에서 자동 생성**한다(라벨→카테고리 매핑 = [`.github/release.yml`](../../.github/release.yml)).
+  수기 `CHANGELOG.md` `[Unreleased]` 관리는 **폐지**했다(병렬 PR 충돌 제거,
+  [ADR-0020](../adr/0020-generate-release-notes-from-prs.md)·[#44](https://github.com/Chigo55/Docker-Compose/issues/44)).
+  `CHANGELOG.md` 는 v1.1.1 까지의 과거 이력만 담는다. 최신은 v1.1.1 — 절차는 [CLAUDE.md](../../CLAUDE.md) 릴리스 항목.
