@@ -36,36 +36,8 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\lib\_common.ps1"
 Set-Location -Path $RepoRoot
 
-
-# ───────────────────────────────────────────────────────────────────────────
-#  Test-TcpPort : 포트로 TCP 접속이 되는지 참/거짓으로 확인합니다. (status.ps1 과 동일)
-# ───────────────────────────────────────────────────────────────────────────
-function Test-TcpPort {
-    param([int]$Port, [int]$TimeoutMs = 700)
-
-    $client = New-Object System.Net.Sockets.TcpClient
-    try {
-        $async = $client.BeginConnect('127.0.0.1', $Port, $null, $null)
-        if ($async.AsyncWaitHandle.WaitOne($TimeoutMs)) { $client.EndConnect($async); return $true }
-        return $false
-    } catch { return $false } finally { $client.Close() }
-}
-
-
-# ───────────────────────────────────────────────────────────────────────────
-#  Get-DirSizeMB : 폴더 용량을 MB 로 돌려줍니다(없으면 $null). (status.ps1 과 동일)
-# ───────────────────────────────────────────────────────────────────────────
-function Get-DirSizeMB {
-    param([string]$Path)
-
-    if (-not (Test-Path $Path)) { return $null }
-    try {
-        $sum = (Get-ChildItem -Path $Path -Recurse -File -ErrorAction SilentlyContinue |
-                Measure-Object -Property Length -Sum).Sum
-        if (-not $sum) { return 0 }
-        return [math]::Round($sum / 1MB, 1)
-    } catch { return $null }
-}
+# Test-TcpPort(포트 응답)·Get-DirSizeMB(데이터 용량)는 _common.ps1 에 있습니다.
+# (status.ps1 과 공유 — 예전엔 두 스크립트에 복제돼 있었습니다. 이슈 #14)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
