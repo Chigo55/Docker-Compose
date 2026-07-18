@@ -189,3 +189,52 @@ DB2019C_PORT=40200
         (Read-DotEnv -Path $fixture)['DATA_ROOT'] | Should -Be 'E:/x'
     }
 }
+
+
+Describe 'Get-DirSizeMB' {
+
+    It '없는 폴더에는 $null 을 돌려준다' {
+        Get-DirSizeMB -Path (Join-Path $TestDrive 'nope') | Should -Be $null
+    }
+
+    It '빈 폴더에는 0 을 돌려준다' {
+        $dir = Join-Path $TestDrive 'empty'
+        New-Item -ItemType Directory -Path $dir | Out-Null
+        Get-DirSizeMB -Path $dir | Should -Be 0
+    }
+
+    It '하위 폴더까지 합산하고 MB(소수 첫째)로 반올림한다' {
+        # 최상위 1 MB + 하위 폴더 0.5 MB = 1.5 MB 인지 확인(재귀 + 반올림).
+        $dir = Join-Path $TestDrive 'sized'
+        $sub = Join-Path $dir 'sub'
+        New-Item -ItemType Directory -Path $sub -Force | Out-Null
+        [System.IO.File]::WriteAllBytes((Join-Path $dir 'a.bin'), [byte[]]::new(1048576))  # 1 MB
+        [System.IO.File]::WriteAllBytes((Join-Path $sub 'b.bin'), [byte[]]::new(524288))   # 0.5 MB
+        Get-DirSizeMB -Path $dir | Should -Be 1.5
+    }
+}
+
+
+Describe 'Test-TcpPort' {
+
+    It '열려 있는 포트에는 $true 를 돌려준다' {
+        # 루프백에 리스너를 띄우고(포트는 OS 가 배정) 그 포트로 접속을 확인합니다.
+        $listener = New-Object System.Net.Sockets.TcpListener -ArgumentList ([System.Net.IPAddress]::Loopback, 0)
+        $listener.Start()
+        try {
+            $port = $listener.LocalEndpoint.Port
+            Test-TcpPort -Port $port | Should -BeTrue
+        } finally {
+            $listener.Stop()
+        }
+    }
+
+    It '닫혀 있는 포트에는 $false 를 돌려준다' {
+        # 리스너로 빈 포트 번호만 잠깐 확보한 뒤 즉시 닫아, 아무도 안 듣는 포트를 만듭니다.
+        $listener = New-Object System.Net.Sockets.TcpListener -ArgumentList ([System.Net.IPAddress]::Loopback, 0)
+        $listener.Start()
+        $port = $listener.LocalEndpoint.Port
+        $listener.Stop()
+        Test-TcpPort -Port $port -TimeoutMs 300 | Should -BeFalse
+    }
+}

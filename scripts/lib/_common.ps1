@@ -268,6 +268,61 @@ function Invoke-Compose {
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+#  farm 상태 수집 도우미  (status.ps1 · report.ps1 이 함께 씁니다)
+#
+#  두 스크립트가 만드는 상태 표의 "TCP"(포트 응답)·"Data"(용량) 칸을 채우는
+#  헬퍼입니다. 예전엔 각 스크립트 안에 같은 함수를 복제해 두어 한쪽만 고치면
+#  어긋날 위험이 있었습니다. 여기 한 곳으로 올려 두 스크립트가 공유합니다.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ───────────────────────────────────────────────────────────────────────────
+#  Test-TcpPort : 특정 포트로 TCP 접속이 되는지 참/거짓으로 확인합니다.
+#  (SQL Server 가 실제로 연결을 받아 주는지 보는 간단한 점검입니다.)
+# ───────────────────────────────────────────────────────────────────────────
+function Test-TcpPort {
+    param(
+        [int]$Port,
+        [int]$TimeoutMs = 700   # 이 시간 안에 응답이 없으면 실패로 간주
+    )
+
+    $client = New-Object System.Net.Sockets.TcpClient
+    try {
+        # 비동기로 접속을 시도하고, 정해진 시간만큼만 기다립니다.
+        $async = $client.BeginConnect('127.0.0.1', $Port, $null, $null)
+        if ($async.AsyncWaitHandle.WaitOne($TimeoutMs)) {
+            $client.EndConnect($async)
+            return $true
+        }
+        return $false
+    } catch {
+        return $false
+    } finally {
+        $client.Close()   # 성공하든 실패하든 연결은 항상 닫습니다.
+    }
+}
+
+
+# ───────────────────────────────────────────────────────────────────────────
+#  Get-DirSizeMB : 폴더 안 모든 파일 용량을 합쳐 MB 단위로 돌려줍니다.
+#  폴더가 없으면 $null 을, 비어 있으면 0 을 돌려줍니다.
+# ───────────────────────────────────────────────────────────────────────────
+function Get-DirSizeMB {
+    param([string]$Path)
+
+    if (-not (Test-Path $Path)) { return $null }
+
+    try {
+        $sum = (Get-ChildItem -Path $Path -Recurse -File -ErrorAction SilentlyContinue |
+                Measure-Object -Property Length -Sum).Sum
+        if (-not $sum) { return 0 }
+        return [math]::Round($sum / 1MB, 1)   # 바이트 → MB, 소수점 첫째 자리까지
+    } catch {
+        return $null
+    }
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 #  SQL 실행 관련 도우미들
 #  (백업 스크립트 등에서 컨테이너 안의 SQL Server 에 명령을 보낼 때 씁니다)
 # ═══════════════════════════════════════════════════════════════════════════
