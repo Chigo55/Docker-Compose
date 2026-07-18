@@ -1,0 +1,32 @@
+# 릴리스 노트 자동 생성 설정
+# `gh release create vX.Y.Z --generate-notes` 가 이 파일을 읽어, 직전 태그 이후 병합된 PR 을
+# 아래 카테고리로 묶는다. 수기 CHANGELOG [Unreleased] 관리를 대체한다(ADR-0020, 이슈 #44).
+#
+# 규칙: PR 은 첫 매칭 카테고리에 들어간다(위에서 아래 순서 = 우선순위). 라벨 -> 카테고리 매핑이며,
+#       라벨을 안 붙인 PR 은 맨 아래 catch-all "기타" 로 떨어진다. 카테고리 제목은 CHANGELOG 의
+#       한국어 섹션명(추가/변경/수정/제거/문서)에 맞췄다.
+#       (이 파일은 GitHub 서버가 UTF-8 로 읽으므로 한글이 안전하다 — ci.yml run: 블록의 ASCII 제약과 무관.)
+changelog:
+  categories:
+    - title: 추가 (Added)
+      labels:
+        - enhancement
+    - title: 수정 (Fixed)
+      labels:
+        - bug
+    - title: 제거 (Removed)
+      labels:
+        - removed
+    - title: 변경 (Changed)
+      labels:
+        - refactor
+    - title: 의존성 (Dependencies)
+      labels:
+        - dependencies
+        - github_actions
+    - title: 문서 (Docs)
+      labels:
+        - documentation
+    - title: 기타 (Other)
+      labels:
+        - "*"
