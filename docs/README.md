@@ -22,6 +22,7 @@ mssql-farm/
 │  ├─ start.ps1             기동 (데이터 폴더 자동 생성)
 │  ├─ stop.ps1              정지 (컨테이너 유지)
 │  ├─ restart.ps1           재시작
+│  ├─ update.ps1            이미지 롤링 업데이트 (하나씩 무중단 갱신)
 │  ├─ status.ps1            상태 확인
 │  ├─ report.ps1            farm 상태 HTML 리포트 (읽기 전용)
 │  ├─ databases.ps1         인스턴스별 DB 인벤토리 (크기·복구모델·최근 백업, 읽기 전용)
@@ -163,6 +164,18 @@ Copy-Item .\compose\.env.example .\compose\.env
 ```
 
 `.env`에서 포트나 이미지 태그를 바꿨다면 `restart`만으로는 반영되지 않습니다. `-Recreate`를 쓰세요.
+
+### update.ps1 — 이미지 롤링 업데이트
+```powershell
+.\scripts\update.ps1                            # 전체를 하나씩 롤링 갱신
+.\scripts\update.ps1 -Service db2022a,db2022b   # 지정한 인스턴스만
+.\scripts\update.ps1 -NoPull                    # pull 없이 현재 로컬 이미지로 재생성만
+.\scripts\update.ps1 -Timeout 180               # healthy 대기 제한 시간(초) 조정
+```
+
+인스턴스를 **하나씩** `pull → 재생성 → healthy 확인` 순으로 갱신하고 다음으로 넘어갑니다. 한 번에 한 인스턴스만 내려갔다 올라오므로 나머지는 계속 서비스합니다(무중단에 가까움). `restart.ps1 -Recreate`가 farm 전체를 동시에 내렸다 올리는 것과 대비됩니다.
+
+**실패하면 그 지점에서 멈춥니다.** 이미 갱신한 인스턴스는 그대로 두고, 아직 손대지 않은 인스턴스는 건너뜁니다(SKIP) — 깨진 이미지를 farm 전체로 퍼뜨리지 않으려는 의도된 동작입니다. 마지막에 요약 표를 내고, 실패가 있으면 종료 코드 1을 반환합니다(스케줄러 감지용).
 
 ### stop.ps1 / down.ps1 — 정지·제거
 ```powershell
@@ -418,8 +431,8 @@ docker exec Db2019C ls /opt/mssql-tools*/bin/
 
 ## 향후 계획
 
-대화형 셸(`shell.ps1`)·차등/로그 백업(`backup.ps1 -Type`)·비밀번호 회전(`rotate-password.ps1`)·인스턴스 간 복제(`copy-db.ps1`)·farm 리포트(`report.ps1`)·DB 인벤토리(`databases.ps1`)는 이미 구현되어 위에 정리했습니다.
-남은 계획(예: 이미지 롤링 업데이트 `update.ps1`)의 단일 소스는 [GitHub Project](https://github.com/users/Chigo55/projects/4)와 `roadmap` 라벨 이슈입니다. 단위 테스트·린트·GitHub Actions CI 는 위의 [내부 개발 루프](#내부-개발-루프-저장소를-고칠-때)와 `.github/workflows/ci.yml` 로 이미 갖췄습니다.
+대화형 셸(`shell.ps1`)·차등/로그 백업(`backup.ps1 -Type`)·비밀번호 회전(`rotate-password.ps1`)·인스턴스 간 복제(`copy-db.ps1`)·farm 리포트(`report.ps1`)·DB 인벤토리(`databases.ps1`)·이미지 롤링 업데이트(`update.ps1`)는 이미 구현되어 위에 정리했습니다.
+남은 계획의 단일 소스는 [GitHub Project](https://github.com/users/Chigo55/projects/4)와 `roadmap` 라벨 이슈입니다. 단위 테스트·린트·GitHub Actions CI 는 위의 [내부 개발 루프](#내부-개발-루프-저장소를-고칠-때)와 `.github/workflows/ci.yml` 로 이미 갖췄습니다.
 
 ---
 
