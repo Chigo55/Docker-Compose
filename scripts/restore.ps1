@@ -56,6 +56,10 @@
 .EXAMPLE
     .\scripts\restore.ps1 -Service db2022b -Database MyDb -AsDatabase MyDb_staging
     MyDb 백업을 db2022b 에 MyDb_staging 이라는 다른 이름으로 복원합니다(원본과 공존).
+
+.EXAMPLE
+    .\scripts\restore.ps1 -Database MyDb -Force -NotifyWebhook $env:TEAMS_WEBHOOK
+    복원 후 결과 요약(성공/실패)을 Teams/Slack webhook 으로 보냅니다(무인 운영 알림).
 #>
 [CmdletBinding()]
 param(
@@ -67,7 +71,8 @@ param(
     [string]$StagingDir,           # 컨테이너 안 임시 경로 (안 주면 .env 의 BACKUP_STAGING_DIR)
     [switch]$NoRecovery,           # 붙이면: WITH NORECOVERY (추가 로그 복원 대기)
     [switch]$Chain,                # 붙이면: 최신 전체→차등→로그 체인을 자동으로 이어 복원
-    [switch]$Force                 # 붙이면: 덮어쓰기 확인 프롬프트 없이 진행
+    [switch]$Force,                # 붙이면: 덮어쓰기 확인 프롬프트 없이 진행
+    [string]$NotifyWebhook         # 값을 주면: 복원 요약을 이 webhook(Teams/Slack)으로 전송
 )
 
 $ErrorActionPreference = 'Stop'
@@ -404,6 +409,19 @@ Write-Host "`n=== 복원 결과 ===" -ForegroundColor Cyan
 $results | Format-Table -AutoSize
 
 $failed = @($results | Where-Object { $_.Result -eq 'FAIL' })
+$ok     = @($results | Where-Object { $_.Result -eq 'OK' })
+
+# ── (선택) webhook 알림: 성공·실패 모두 요약을 보냅니다(무인 운영에서 결과 능동 확인). ──
+# backup.ps1 과 같은 공용 헬퍼(Send-WebhookNotification)를 쓰며, exit 1 보다 먼저 보내야 실패 시에도 알림이 나갑니다.
+if ($NotifyWebhook) {
+    $status  = if ($failed.Count -gt 0) { 'FAILED' } else { 'OK' }
+    $dbLabel = if ($AsDatabase) { "$Database → $AsDatabase" } else { $Database }
+    $summary = "[MSSQL Farm 복원 {0}] DB={1} · 성공 {2} / 실패 {3}" -f `
+                $status, $dbLabel, $ok.Count, $failed.Count
+    if ($failed.Count -gt 0) { $summary += ("  실패: {0}" -f (($failed.Instance) -join ', ')) }
+    Send-WebhookNotification -Url $NotifyWebhook -Message $summary
+}
+
 if ($failed.Count -gt 0) {
     Write-Host ("실패 {0}건: {1}" -f $failed.Count, (($failed.Instance) -join ', ')) -ForegroundColor Red
     exit 1   # 스케줄러가 실패를 감지할 수 있도록 0 이 아닌 코드로 종료

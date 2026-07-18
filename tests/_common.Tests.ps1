@@ -191,6 +191,28 @@ DB2019C_PORT=40200
 }
 
 
+Describe 'Send-WebhookNotification' {
+    # backup.ps1 · restore.ps1 이 공유하는 webhook 전송 헬퍼(#15). 실제 네트워크
+    # 호출은 Invoke-RestMethod 를 Mock 으로 가로채 검사합니다.
+
+    It '메시지를 {"text":...} JSON 페이로드로 한 번 POST 한다' {
+        Mock -CommandName Invoke-RestMethod -MockWith { }
+        Send-WebhookNotification -Url 'https://example.test/hook' -Message '테스트 요약'
+
+        # UTF-8 바이트로 보내므로 다시 디코드해 페이로드 형태(text 필드)를 확인합니다.
+        Should -Invoke -CommandName Invoke-RestMethod -Times 1 -Exactly -ParameterFilter {
+            ([System.Text.Encoding]::UTF8.GetString($Body) | ConvertFrom-Json).text -eq '테스트 요약'
+        }
+    }
+
+    It '전송이 실패해도 throw 하지 않는다 (알림 실패가 작업 결과를 바꾸지 않음)' {
+        # 알림 실패가 백업/복원의 종료 코드를 바꾸면 안 된다는 규약을 코드로 고정합니다.
+        Mock -CommandName Invoke-RestMethod -MockWith { throw '네트워크 오류' }
+        { Send-WebhookNotification -Url 'https://example.test/hook' -Message '테스트' } | Should -Not -Throw
+    }
+}
+
+
 Describe 'Get-DirSizeMB' {
 
     It '없는 폴더에는 $null 을 돌려준다' {
