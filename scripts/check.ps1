@@ -14,8 +14,9 @@
            · PSUseShouldProcessForStateChangingFunctions: ShouldProcess 대신 수동 y/N 프롬프트 관례(CONVENTIONS §9)
       2) 규약 점검 (doctor.ps1) — .env/compose 규약 + docker compose config 렌더링.
          (doctor 가 마지막 단계에서 compose 렌더링까지 하므로 여기서 따로 하지 않습니다.)
-      3) 문서 인덱스 검증 (gen-docs-index.ps1 -Check) — ADR·rules 인덱스 표를 커밋하지
-         않는 대신(ADR-0021), 각 파일에 summary frontmatter 가 있는지 확인합니다.
+      3) 문서 인덱스 검증 (gen-docs-index.ps1 -Check) — ADR·rules·scripts 인덱스 표를 커밋하지
+         않는 대신(ADR-0021·ADR-0022), 각 파일에 summary frontmatter 가 있는지, 그리고
+         scripts\*.ps1 마다 docs\scripts\<name>.md 사용법 문서가 있는지 확인합니다.
 
     -Test 를 주면 끝에 Pester 단위 테스트(test.ps1)까지 이어서 돌립니다.
     -Watch 를 주면 scripts\ / compose\ / tests\ 변경을 감시해 자동으로 재실행합니다.
@@ -121,8 +122,9 @@ function Invoke-Doctor {
 # ═══════════════════════════════════════════════════════════════════════════
 #  Invoke-DocsIndex : gen-docs-index.ps1 -Check 로 문서 인덱스 frontmatter 를 검증합니다.
 #
-#  모델 A(ADR-0021): ADR·rules 인덱스 표를 저장소에 커밋하지 않는 대신, 각 파일에
-#  summary frontmatter 가 있는지 여기서 확인합니다(없으면 인덱스 생성이 깨지므로).
+#  모델 A(ADR-0021·ADR-0022): ADR·rules·scripts 인덱스 표를 저장소에 커밋하지 않는 대신,
+#  각 파일에 summary frontmatter 가 있는지(없으면 인덱스 생성이 깨지므로)와, 스크립트마다
+#  docs\scripts\<name>.md 사용법 문서가 있는지를 여기서 확인합니다.
 #  Invoke-Doctor 와 같은 방식 — & 로 호출해 자식의 exit 를 $LASTEXITCODE 로만 받습니다.
 # ═══════════════════════════════════════════════════════════════════════════
 function Invoke-DocsIndex {

@@ -4,10 +4,11 @@
 
     실행:  .\scripts\test.ps1        (또는)  .\scripts\check.ps1 -Test
 
-    검증 대상(파일이 아니라 텍스트를 받는 순수 함수):
+    검증 대상(파일이 아니라 텍스트/이름 목록을 받는 순수 함수):
       · ConvertFrom-DocFrontmatter — '--- ... ---' frontmatter 파싱 + 따옴표 벗기기
       · Get-DocH1                  — 첫 '# 제목' 줄 추출
       · Get-AdrTitle              — 'ADR-NNNN: ' 접두사 제거
+      · Get-DocCoverage           — scripts\*.ps1 ↔ docs\scripts\*.md 짝 맞추기(ADR-0022)
 
     [주입 방식] gen-docs-index.ps1 은 직접 실행할 때만 main 을 돕니다(InvocationName
     가드). 아래처럼 dot-source 하면 함수만 로드되어 파일시스템 없이 테스트할 수 있습니다.
@@ -96,5 +97,44 @@ Describe 'Get-AdrTitle' {
 
     It '접두사가 없으면 원문을 그대로 둔다' {
         Get-AdrTitle -H1 '접두사 없는 제목' | Should -BeExactly '접두사 없는 제목'
+    }
+}
+
+
+Describe 'Get-DocCoverage' {
+
+    It '스크립트와 문서가 1:1 이면 어긋난 항목이 없다' {
+        $cov = Get-DocCoverage -ScriptName @('start', 'backup') -DocName @('backup', 'start')
+        $cov.MissingDoc.Count | Should -Be 0
+        $cov.OrphanDoc.Count  | Should -Be 0
+    }
+
+    It '문서 없는 새 스크립트를 MissingDoc 으로 잡는다' {
+        $cov = Get-DocCoverage -ScriptName @('start', 'newthing') -DocName @('start')
+        $cov.MissingDoc | Should -Be @('newthing')
+        $cov.OrphanDoc.Count | Should -Be 0
+    }
+
+    It '스크립트가 사라진 고아 문서를 OrphanDoc 으로 잡는다' {
+        $cov = Get-DocCoverage -ScriptName @('start') -DocName @('start', 'gone')
+        $cov.OrphanDoc | Should -Be @('gone')
+        $cov.MissingDoc.Count | Should -Be 0
+    }
+
+    It '대소문자가 달라도 같은 이름으로 본다 (Windows 파일시스템 기준)' {
+        $cov = Get-DocCoverage -ScriptName @('Copy-DB') -DocName @('copy-db')
+        $cov.MissingDoc.Count | Should -Be 0
+        $cov.OrphanDoc.Count  | Should -Be 0
+    }
+
+    It '어긋난 항목이 여러 개면 이름순으로 정렬해 돌려준다' {
+        $cov = Get-DocCoverage -ScriptName @('zeta', 'alpha') -DocName @()
+        $cov.MissingDoc | Should -Be @('alpha', 'zeta')
+    }
+
+    It '양쪽이 비어 있어도 안전하다' {
+        $cov = Get-DocCoverage -ScriptName @() -DocName @()
+        $cov.MissingDoc.Count | Should -Be 0
+        $cov.OrphanDoc.Count  | Should -Be 0
     }
 }
