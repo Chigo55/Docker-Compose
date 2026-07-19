@@ -1,3 +1,7 @@
+---
+summary: "로드맵·버그를 문서 대신 Project #4·이슈로"
+---
+
 # ADR-0016: 로드맵·버그·위험은 문서가 아니라 GitHub(Project·Issues)로 추적한다
 
 - 상태: Accepted — 단, **`docs/ROADMAP.md` 를 동결 보존한다는 조항은 [ADR-0019](0019-remove-frozen-roadmap.md) 로 대체됨**(파일은 삭제됨). Project·Issues 를 단일 소스로 삼는 결정 자체는 유효하다.

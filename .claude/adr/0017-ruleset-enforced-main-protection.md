@@ -1,3 +1,7 @@
+---
+summary: "관례 → 강제. 필수 체크는 CI job 이름에 묶임"
+---
+
 # ADR-0017: main 보호는 관례가 아니라 Ruleset 으로 서버에서 강제한다
 
 - 상태: Accepted

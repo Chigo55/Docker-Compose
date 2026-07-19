@@ -10,6 +10,9 @@ compose/.env
 *.bak
 _backup/
 
+# 문서 인덱스 생성물 (gen-docs-index.ps1 -Out) — 커밋하지 않는 온디맨드 뷰 (ADR-0021)
+docs/_generated/
+
 # OS/편집기 부산물
 Thumbs.db
 desktop.ini

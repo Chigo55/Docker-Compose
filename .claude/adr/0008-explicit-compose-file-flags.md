@@ -1,3 +1,7 @@
+---
+summary: "어느 폴더에서 실행해도 동일 동작"
+---
+
 # ADR-0008: compose 호출 시 `-f`/`--env-file`을 항상 명시한다
 
 - 상태: Accepted

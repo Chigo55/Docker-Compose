@@ -1,3 +1,7 @@
+---
+summary: "`x-base`/`x-mssql-2019`/`x-mssql-2022`"
+---
+
 # ADR-0003: 공통 서비스 정의는 YAML 앵커로 재사용한다
 
 - 상태: Accepted

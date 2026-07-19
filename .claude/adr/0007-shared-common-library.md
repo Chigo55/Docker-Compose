@@ -1,3 +1,7 @@
+---
+summary: "자동 발견/헬퍼 재사용, 하드코딩 금지"
+---
+
 # ADR-0007: 공통 로직은 `_common.ps1`에 모으고 dot-source 한다
 
 - 상태: Accepted

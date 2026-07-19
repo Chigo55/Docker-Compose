@@ -1,3 +1,7 @@
+---
+summary: "작업은 worktree 에서, main 병합은 PR·CI 게이트로"
+---
+
 # ADR-0015: 모든 작업은 worktree에서, main 병합은 PR + GitHub Actions CI로
 
 - 상태: Accepted

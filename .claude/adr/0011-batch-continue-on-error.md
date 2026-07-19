@@ -1,3 +1,7 @@
+---
+summary: "스케줄러가 실패 감지"
+---
+
 # ADR-0011: 배치 작업은 continue-on-error + 요약 표 + `exit 1`
 
 - 상태: Accepted

@@ -1,3 +1,7 @@
+---
+summary: "역사 보존은 git 이 한다 — ADR-0016 의 동결 조항 대체"
+---
+
 # ADR-0019: 동결된 `docs/ROADMAP.md` 를 삭제한다
 
 - 상태: Accepted

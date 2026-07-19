@@ -1,3 +1,7 @@
+---
+summary: "`.mdf` 직접 복사 금지"
+---
+
 # ADR-0005: 백업은 엔진 `BACKUP DATABASE`로만 한다 (파일 복사 금지)
 
 - 상태: Accepted

@@ -1,3 +1,7 @@
+---
+summary: "compose.yml 은 구조만, 값은 전부 `.env`"
+---
+
 # ADR-0001: `.env`가 유일한 설정 소스, compose.yml 은 구조만 정의
 
 - 상태: Accepted

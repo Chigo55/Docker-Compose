@@ -8,13 +8,15 @@
 
 ## 목록
 
-| 파일 | 다루는 것 |
-|------|-----------|
-| [env-format.md](env-format.md) | `.env` 형식 — `$$` 이스케이프 · 슬래시 경로 · 인라인 주석 금지 |
-| [instances.md](instances.md) | 인스턴스 추가/변경(3종 세트) · 선택 항목 양쪽 켜기 |
-| [data-safety.md](data-safety.md) | 데이터 안전 — 바인드 마운트 · 엔진 백업 · 폴더 선생성 |
-| [secrets.md](secrets.md) | SA 비밀번호 — 정책 · Git 제외 · `$$` 금지 |
-| [images-restart.md](images-restart.md) | 이미지/sqlcmd 경로 · restart 변경 반영 |
-| [authoring.md](authoring.md) | 새 스크립트 작성 · compose 직접 실행 |
-| [workflow.md](workflow.md) | 작업 흐름 — worktree·PR·CI 게이트, 로드맵/버그는 GitHub 으로 추적 |
-| [github.md](github.md) | GitHub 기능 지도 — ruleset·Actions 권한·dependabot·Wiki·Security 등 원격 설정 현황 |
+rules 목록 표는 **저장소에 커밋하지 않는다.** 여러 PR 이 같은 표에 동시에 행을 추가하다
+충돌하던 문제를 없애기 위해서다([ADR-0021](../adr/0021-generated-doc-index.md)). 각 rule 의 "다루는 것"
+요약은 그 파일 맨 위 frontmatter(`summary:`)에 있고(파일을 열면 GitHub 이 표로 보여 준다),
+전체 목록 표는 생성기로 만들어 본다.
+
+```powershell
+.\scripts\gen-docs-index.ps1                      # ADR·rules 목록을 화면에 출력
+.\scripts\gen-docs-index.ps1 -Out docs\_generated # 파일로 저장(gitignored)
+```
+
+> **새 rule 을 추가할 때는 이 README 를 건드리지 마라.** 새 파일 맨 위에 `summary` frontmatter 만
+> 넣으면 된다. 목록은 위 생성기로 뽑고, CI 가 `summary` 누락을 잡는다([ADR-0021](../adr/0021-generated-doc-index.md)).

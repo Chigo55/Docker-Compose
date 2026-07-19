@@ -1,3 +1,7 @@
+---
+summary: "GitHub 기능 지도 — ruleset·Actions 권한·dependabot·Wiki·Security 등 원격 설정 현황"
+---
+
 # GitHub 기능 지도 (원격에 실제로 켜져 있는 것)
 
 이 저장소의 규칙 일부는 파일이 아니라 **GitHub 설정**에 있다. 저장소만 clone 해서는 보이지 않고,
@@ -35,6 +39,10 @@
 
 - 시크릿은 `CLAUDE_CODE_OAUTH_TOKEN` 하나(Claude 워크플로 2종이 사용). Environments·변수는 없다.
 - `ci.yml` 의 `run:` 블록은 **ASCII 전용**([CLAUDE.md](../../CLAUDE.md) 참고). YAML 주석의 한글은 무방하다.
+- **ADR·rules 인덱스는 워크플로가 아니라 로컬(`check.ps1`)에서 생성·검증한다**([ADR-0021](../adr/0021-generated-doc-index.md)).
+  "병합 후 인덱스를 자동 커밋" 류를 안 쓴 이유가 여기 있다: main 은 Ruleset 으로 보호되어 **어떤 액터도 직접
+  push 하지 못하고**([main protection](#병합을-막는-것--ruleset-main-protection)), `GITHUB_TOKEN` 으로 연 PR 은 CI 를 트리거하지 못해 필수 체크가 안 붙는다.
+  그래서 표를 아예 커밋하지 않고(생성물), CI 는 각 파일의 `summary` frontmatter 완비만 검사한다.
 
 ## Dependabot
 

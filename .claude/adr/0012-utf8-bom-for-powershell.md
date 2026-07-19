@@ -1,3 +1,7 @@
+---
+summary: "PS 5.1 한글 인코딩 사고 방지"
+---
+
 # ADR-0012: `.ps1`은 UTF-8 with BOM, docker 파일은 BOM 없음
 
 - 상태: Accepted

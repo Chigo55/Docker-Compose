@@ -1,3 +1,7 @@
+---
+summary: "수기 `[Unreleased]` 폐지 — `.github/release.yml` + `--generate-notes`"
+---
+
 # ADR-0020: 릴리스 노트를 병합된 PR 에서 자동 생성한다 — 수기 `[Unreleased]` 폐지
 
 - 상태: Accepted

@@ -1,3 +1,7 @@
+---
+summary: "이미지/sqlcmd 경로 · restart 변경 반영"
+---
+
 # 이미지/sqlcmd 경로 · 변경 반영
 
 ## 이미지 / sqlcmd 경로

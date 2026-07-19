@@ -1,3 +1,7 @@
+---
+summary: "Pester/PSScriptAnalyzer 없으면 건너뜀, `-Install`"
+---
+
 # ADR-0014: 내부 개발 루프(check/test)는 선택 의존성으로 얹는다
 
 - 상태: Accepted
