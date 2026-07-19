@@ -4,7 +4,7 @@
     내부 개발 루프의 "검증 러너". 스크립트/설정을 고칠 때마다 빠르게 점검합니다.
 
 .DESCRIPTION
-    한 번에 두 단계를 돌립니다.
+    한 번에 세 단계를 돌립니다.
       1) 린트 (PSScriptAnalyzer) — scripts\ 와 tests\ 의 모든 .ps1 정적 분석.
          이 저장소의 의도된 관례와 충돌하는 규칙은 제외합니다:
            · PSAvoidUsingWriteHost   : 컬러 단계 출력은 이 저장소의 출력 방식(관례)
@@ -14,6 +14,8 @@
            · PSUseShouldProcessForStateChangingFunctions: ShouldProcess 대신 수동 y/N 프롬프트 관례(CONVENTIONS §9)
       2) 규약 점검 (doctor.ps1) — .env/compose 규약 + docker compose config 렌더링.
          (doctor 가 마지막 단계에서 compose 렌더링까지 하므로 여기서 따로 하지 않습니다.)
+      3) 문서 인덱스 검증 (gen-docs-index.ps1 -Check) — ADR·rules 인덱스 표를 커밋하지
+         않는 대신(ADR-0021), 각 파일에 summary frontmatter 가 있는지 확인합니다.
 
     -Test 를 주면 끝에 Pester 단위 테스트(test.ps1)까지 이어서 돌립니다.
     -Watch 를 주면 scripts\ / compose\ / tests\ 변경을 감시해 자동으로 재실행합니다.
@@ -117,6 +119,20 @@ function Invoke-Doctor {
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+#  Invoke-DocsIndex : gen-docs-index.ps1 -Check 로 문서 인덱스 frontmatter 를 검증합니다.
+#
+#  모델 A(ADR-0021): ADR·rules 인덱스 표를 저장소에 커밋하지 않는 대신, 각 파일에
+#  summary frontmatter 가 있는지 여기서 확인합니다(없으면 인덱스 생성이 깨지므로).
+#  Invoke-Doctor 와 같은 방식 — & 로 호출해 자식의 exit 를 $LASTEXITCODE 로만 받습니다.
+# ═══════════════════════════════════════════════════════════════════════════
+function Invoke-DocsIndex {
+    $gen = Join-Path $PSScriptRoot 'gen-docs-index.ps1'
+    & $gen -Check
+    return $LASTEXITCODE
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 #  Invoke-Tests : test.ps1 을 실행하고 종료 코드를 돌려줍니다. (Invoke-Doctor 와 동일 방식)
 # ═══════════════════════════════════════════════════════════════════════════
 function Invoke-Tests {
@@ -133,6 +149,7 @@ function Invoke-Tests {
 function Invoke-AllChecks {
     $lint       = Invoke-Lint
     $doctorCode = Invoke-Doctor
+    $docsCode   = Invoke-DocsIndex
     $testCode   = 0
     if ($Test) { $testCode = Invoke-Tests }
 
@@ -147,13 +164,15 @@ function Invoke-AllChecks {
     Write-Host ("  린트   : {0}" -f $lintText) -ForegroundColor $lintColor
     Write-Host ("  doctor : {0}" -f $(if ($doctorCode -eq 0) { '통과' } else { '오류' })) `
         -ForegroundColor $(if ($doctorCode -eq 0) { 'Green' } else { 'Red' })
+    Write-Host ("  인덱스 : {0}" -f $(if ($docsCode -eq 0) { '통과' } else { '오류' })) `
+        -ForegroundColor $(if ($docsCode -eq 0) { 'Green' } else { 'Red' })
     if ($Test) {
         Write-Host ("  테스트 : {0}" -f $(if ($testCode -eq 0) { '통과' } else { '실패' })) `
             -ForegroundColor $(if ($testCode -eq 0) { 'Green' } else { 'Red' })
     }
 
-    # 린트 경고(warn)/건너뜀(skip)은 기동을 막지 않습니다. 오류(fail)와 doctor/테스트 실패만 실패로 봅니다.
-    $ok = ($lint -ne 'fail') -and ($doctorCode -eq 0) -and ($testCode -eq 0)
+    # 린트 경고(warn)/건너뜀(skip)은 기동을 막지 않습니다. 오류(fail)와 doctor/인덱스/테스트 실패만 실패로 봅니다.
+    $ok = ($lint -ne 'fail') -and ($doctorCode -eq 0) -and ($docsCode -eq 0) -and ($testCode -eq 0)
     Write-Host ("`n{0}" -f $(if ($ok) { '전체 통과.' } else { '문제가 있습니다. 위 로그를 확인하세요.' })) `
         -ForegroundColor $(if ($ok) { 'Green' } else { 'Red' })
     return $ok
@@ -164,7 +183,7 @@ function Invoke-AllChecks {
 #  실행
 # ═══════════════════════════════════════════════════════════════════════════
 if ($Watch) {
-    $watchPaths = @('scripts', 'compose', 'tests') |
+    $watchPaths = @('scripts', 'compose', 'tests', '.claude') |
                   ForEach-Object { Join-Path $RepoRoot $_ } | Where-Object { Test-Path $_ }
     $last = $null
     Write-Host "감시 시작. 파일을 저장하면 자동으로 다시 검사합니다. (Ctrl+C 로 종료)" -ForegroundColor DarkGray

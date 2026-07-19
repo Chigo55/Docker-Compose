@@ -1,3 +1,7 @@
+---
+summary: "`.env.example` 커밋"
+---
+
 # ADR-0013: 평문 비밀번호 `.env`는 Git 에서 제외하고, 견본만 공유한다
 
 - 상태: Accepted

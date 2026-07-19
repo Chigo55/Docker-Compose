@@ -1,3 +1,7 @@
+---
+summary: "SA 비밀번호 — 정책 · Git 제외 · `$$` 금지"
+---
+
 # 비밀번호
 
 - `MSSQL_SA_PASSWORD`는 `.env`에 평문으로 있고, 실값 `.env`는 `.gitignore` 대상이다.

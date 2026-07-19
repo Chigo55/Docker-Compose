@@ -1,3 +1,7 @@
+---
+summary: "작업 흐름 — worktree·PR·CI 게이트, 로드맵/버그는 GitHub 으로 추적"
+---
+
 # 작업 흐름 (worktree · PR · 추적)
 
 ## 변경은 worktree 에서 만들고 PR 로 병합한다

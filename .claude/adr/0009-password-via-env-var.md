@@ -1,3 +1,7 @@
+---
+summary: "셸 인용/특수문자 문제 회피"
+---
+
 # ADR-0009: SQL 비밀번호는 명령줄이 아니라 `SQLCMDPASSWORD` 환경변수로 전달한다
 
 - 상태: Accepted
