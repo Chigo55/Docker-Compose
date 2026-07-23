@@ -20,7 +20,7 @@ clone 해서는 보이지 않지만 작업을 막는 것들이 있습니다. 전
 - **main 은 Ruleset `main protection` 으로 서버에서 보호됩니다**(PR 필수 · force push/삭제 금지 · **bypass 없음**). 직접 push 는 거부됩니다 — 관례가 아닙니다([ADR-0017](.claude/adr/0017-ruleset-enforced-main-protection.md)).
 - **Actions 의 기본 워크플로 권한이 `read`** 입니다. 워크플로가 PR·이슈에 무언가를 쓰려면 파일에서 `permissions:`를 직접 올려야 하고, 안 올리면 실패 없이 **조용히 아무것도 안 남깁니다**(이슈 #27·#30의 원인).
 
-학습 자료(Docker/SQL Server 개념)는 저장소가 아니라 [Wiki](https://github.com/Chigo55/Docker-Compose/wiki)에 둡니다. 판별 기준은 "코드가 바뀌면 같이 늙는가" 하나입니다 — 사용법·규약·ADR 은 저장소, 개념은 Wiki([ADR-0018](.claude/adr/0018-wiki-for-learning-repo-for-code.md)). **Wiki 에 스크립트 사용법을 복사하지 마세요**(단일 소스는 `docs/README.md`, Wiki 는 링크만).
+학습 자료(Docker/SQL Server 개념)는 저장소가 아니라 [Wiki](https://github.com/Chigo55/Docker-Compose/wiki)에 둡니다. 판별 기준은 "코드가 바뀌면 같이 늙는가" 하나입니다 — 사용법·규약·ADR 은 저장소, 개념은 Wiki([ADR-0018](.claude/adr/0018-wiki-for-learning-repo-for-code.md)). **Wiki 에 스크립트 사용법을 복사하지 마세요**(단일 소스는 `docs/scripts/<name>.md`, Wiki 는 링크만).
 
 ## 리포지토리 구조
 
@@ -31,14 +31,17 @@ scripts/            관리 스크립트 (여기서 실행)
   *.ps1             start/stop/restart/status/report/databases/logs/query/shell/backup/restore/copy-db/rotate-password/doctor/down
   check.ps1         내부 개발 루프: 린트 + doctor + 인덱스검증(+compose 렌더링) [+ -Test]
   test.ps1          Pester 단위 테스트 실행 (Pester 5+ 필요)
-  gen-docs-index.ps1 ADR·rules 인덱스 생성/검증 (표는 커밋 안 함 — ADR-0021)
+  gen-docs-index.ps1 ADR·rules·scripts 인덱스 생성/검증 (표는 커밋 안 함 — ADR-0021·0022)
 tests/
   _common.Tests.ps1 _common.ps1 자동 발견/파싱 로직 단위 테스트
+  gen-docs-index.Tests.ps1 문서 frontmatter 파서·문서 커버리지 단위 테스트
 compose/
   compose.yml       컨테이너 구조 정의 (설정값 없음)
   .env              모든 설정값 (Git 제외)
   .env.example      .env 견본 (비밀번호 비움)
-docs/README.md      사용자 문서 (로드맵 문서는 없음 — 단일 소스는 GitHub Project)
+docs/
+  README.md         사용자 문서 입구 (설정 레퍼런스·운영 메모. 로드맵 문서는 없음 — 단일 소스는 GitHub Project)
+  scripts/<name>.md 스크립트별 사용법 — 스크립트 하나당 파일 하나 (ADR-0022, 인덱스 표는 커밋 안 함)
 .github/
   workflows/        ci.yml(병합 게이트) · claude-code-review.yml · claude.yml
   ISSUE_TEMPLATE/   버그·기능 요청 템플릿 (+ config.yml 의 보안 신고 창구)
@@ -152,6 +155,7 @@ Push-Location .\compose; docker compose config; Pop-Location
 - 모든 `.ps1`은 `#Requires -Version 5.1`, `$ErrorActionPreference = 'Stop'`, comment-based help(`.SYNOPSIS`/`.EXAMPLE`)로 시작합니다.
 - **`.ps1` 파일은 UTF-8 with BOM으로 저장**합니다. 한국어 Windows의 PowerShell 5.1은 BOM이 없는 UTF-8을 ANSI(CP949)로 잘못 읽어 한글 주석·출력이 깨지고, 최악의 경우 파싱이 실패합니다. BOM을 제거하는 편집기/도구로 저장했다면 다시 UTF-8 BOM으로 되돌리세요. (반대로 `compose/.env`·`compose/compose.yml`은 docker가 읽으므로 BOM 없이 두며, 값은 모두 ASCII·한글은 주석에만 둡니다.)
 - 새 로직은 새 스크립트에 하드코딩하지 말고 `scripts/lib/_common.ps1`의 자동 발견/헬퍼(`Get-Instances`, `Get-TargetInstances`, `Invoke-Compose`, `Invoke-Sql` 등)를 재사용하세요.
+- **새 스크립트를 추가하면 `docs/scripts/<name>.md`(맨 위 `summary` frontmatter)도 함께 만듭니다.** `docs/README.md` 나 인덱스 표는 건드리지 마세요 — 목록은 생성물입니다([ADR-0022](.claude/adr/0022-per-script-docs.md)). 문서를 빠뜨리면 `check.ps1`(그리고 CI)이 잡습니다.
 - 사용자 대면 출력은 한국어이며 `Write-Host -ForegroundColor`로 단계(Cyan 헤더, Green 성공, Yellow 경고, Red 실패, DarkGray 부가)를 구분합니다.
 - 배치 작업(`backup.ps1`)은 인스턴스 하나가 실패해도 나머지를 계속 진행하고, 마지막에 요약 표를 낸 뒤 실패가 있으면 `exit 1`을 반환합니다(스케줄러 감지용). 새 배치 스크립트도 이 패턴을 따르세요.
 - 릴리스: 하위호환 기능 추가는 마이너 범프. **릴리스 노트는 수기 `CHANGELOG.md` 가 아니라 병합된 PR 에서 자동 생성**합니다 — annotated 태그 `vX.Y.Z` 를 만들고 `gh release create vX.Y.Z --generate-notes` 로 `.github/release.yml`(라벨→카테고리) 기준 노트를 냅니다([ADR-0020](.claude/adr/0020-generate-release-notes-from-prs.md)). `CHANGELOG.md` 는 v1.1.1 까지의 과거 이력만 담고 갱신하지 않으며, `[Unreleased]` 수기 관리는 폐지했습니다(병렬 PR 충돌 제거). PR 에는 카테고리 라벨(`enhancement`/`bug`/`documentation`/`refactor`/`removed` 등)을 붙여야 노트가 올바른 섹션으로 정렬됩니다.

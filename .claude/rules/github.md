@@ -39,10 +39,11 @@ summary: "GitHub 기능 지도 — ruleset·Actions 권한·dependabot·Wiki·Se
 
 - 시크릿은 `CLAUDE_CODE_OAUTH_TOKEN` 하나(Claude 워크플로 2종이 사용). Environments·변수는 없다.
 - `ci.yml` 의 `run:` 블록은 **ASCII 전용**([CLAUDE.md](../../CLAUDE.md) 참고). YAML 주석의 한글은 무방하다.
-- **ADR·rules 인덱스는 워크플로가 아니라 로컬(`check.ps1`)에서 생성·검증한다**([ADR-0021](../adr/0021-generated-doc-index.md)).
+- **ADR·rules·scripts 인덱스는 워크플로가 아니라 로컬(`check.ps1`)에서 생성·검증한다**([ADR-0021](../adr/0021-generated-doc-index.md)·[ADR-0022](../adr/0022-per-script-docs.md)).
   "병합 후 인덱스를 자동 커밋" 류를 안 쓴 이유가 여기 있다: main 은 Ruleset 으로 보호되어 **어떤 액터도 직접
   push 하지 못하고**([main protection](#병합을-막는-것--ruleset-main-protection)), `GITHUB_TOKEN` 으로 연 PR 은 CI 를 트리거하지 못해 필수 체크가 안 붙는다.
-  그래서 표를 아예 커밋하지 않고(생성물), CI 는 각 파일의 `summary` frontmatter 완비만 검사한다.
+  그래서 표를 아예 커밋하지 않고(생성물), CI 는 각 파일의 `summary` frontmatter 완비와
+  `scripts\*.ps1` ↔ `docs\scripts\*.md` 짝(양방향)만 검사한다.
 
 ## Dependabot
 
@@ -76,7 +77,7 @@ summary: "GitHub 기능 지도 — ruleset·Actions 권한·dependabot·Wiki·Se
 - [Wiki](https://github.com/Chigo55/Docker-Compose/wiki) 는 **학습 공간**이다 — Docker/SQL Server 개념처럼
   코드가 바뀌어도 늙지 않는 자료만 둔다([ADR-0018](../adr/0018-wiki-for-learning-repo-for-code.md)).
   저장소 About(`homepage`)이 여기를 가리킨다.
-- **스크립트 사용법을 Wiki 에 복사하지 않는다.** 사용법의 단일 소스는 [docs/README.md](../../docs/README.md) 이고,
+- **스크립트 사용법을 Wiki 에 복사하지 않는다.** 사용법의 단일 소스는 [docs/scripts/](../../docs/scripts/)(스크립트당 파일 하나, [ADR-0022](../adr/0022-per-script-docs.md)) 이고,
   Wiki 는 링크만 한다. Wiki 는 별도 git 저장소라 CI 도 PR 리뷰도 없어, 복사하면 조용히 낡는다.
 
 ## Security
