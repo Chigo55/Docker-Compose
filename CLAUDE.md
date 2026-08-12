@@ -99,7 +99,7 @@ Push-Location .\compose; docker compose config; Pop-Location
 
 이 저장소의 모든 변경(스크립트·설정·문서)은 아래 흐름을 따릅니다. 근거는 [ADR-0015](.claude/adr/0015-worktree-pr-github-actions.md)·[ADR-0016](.claude/adr/0016-track-in-github-not-docs.md)·[ADR-0017](.claude/adr/0017-ruleset-enforced-main-protection.md), 실행 규칙은 [rules/workflow.md](.claude/rules/workflow.md)에 있습니다.
 
-1. **worktree 에서 작업** — main 워킹트리에서 직접 편집하지 않고, `git worktree add -b <type>/<주제> ..\wt-<주제> main` 으로 격리된 작업 공간을 만들어 편집·커밋합니다.
+1. **worktree 에서 작업** — main 워킹트리에서 직접 편집하지 않고, `git fetch origin main` 으로 최신 main 을 받은 뒤 `git worktree add -b <type>/<주제> ..\wt-<주제> origin/main` 으로 격리된 작업 공간을 만들어 편집·커밋합니다. **로컬 `main` 이 아니라 `origin/main` 기준**입니다 — 로컬은 마지막 pull 시점에 멈춰 있어, 그 사이 병합된 PR 과 같은 ADR 번호를 집어도 파일명이 다르면 git·CI 가 잡지 못합니다([rules/workflow.md](.claude/rules/workflow.md)).
 2. **커밋 전 로컬 검증** — `.\scripts\check.ps1 -Test`(린트 + doctor + Pester).
 3. **push → PR** — `git push -u origin <브랜치>` 후 `gh pr create`. **main 직접 push 는 Ruleset 이 거부**합니다(우회 불가 — owner 도 예외 아님).
 4. **CI 게이트** — `.github/workflows/ci.yml` 이 PR·push 마다 `check.ps1 -Test -Install` 을 windows-latest 에서 실행합니다. 이 job 은 ruleset 의 **필수 상태 체크**(`lint + doctor + tests (PowerShell 5.1)`)라 통과해야 병합 버튼이 열립니다. PR 에는 Claude 자동 리뷰(`claude-code-review.yml`)도 함께 붙습니다.
