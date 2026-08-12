@@ -132,7 +132,7 @@ Push-Location .\compose; docker compose config; Pop-Location
 - 데이터는 호스트 바인드 마운트(`DATA_ROOT/<XXX_DIR>/data` → `/var/opt/mssql/data`)에 있습니다. 그래서 `down.ps1`으로 컨테이너를 지워도 **데이터는 보존**됩니다.
 - `start.ps1`은 기동 전에 데이터 폴더를 먼저 만듭니다. 폴더가 없는 채로 올리면 Docker가 빈 폴더를 생성해 **기존 DB를 못 붙기** 때문입니다.
 - 백업은 **반드시 `backup.ps1`(엔진 `BACKUP DATABASE`)로** 합니다. 실행 중 인스턴스의 `.mdf`를 직접 복사하면 손상된 사본이 나옵니다.
-- 기본 마운트는 `data`만입니다. errorlog(`/var/opt/mssql/log`)·secrets는 그대로 두면 컨테이너와 함께 사라지지만, **선택적으로 보존**할 수 있습니다: `compose/.env`의 `MOUNT_LOG_SECRETS=true`와 `compose/compose.yml` 각 서비스 `volumes`의 log/secrets 마운트 두 줄 주석을 **함께** 해제하면, `start.ps1`이 `DATA_ROOT/<XXX_DIR>/log`·`secrets` 폴더를 만들고 호스트에 보존합니다.
+- 기본 마운트는 `data`만입니다. errorlog(`/var/opt/mssql/log`)·secrets는 그대로 두면 컨테이너와 함께 사라지지만, **선택적으로 보존**할 수 있습니다: `compose/.env`의 `MOUNT_LOG_SECRETS=true`와 `compose/compose.yml` 각 서비스 `volumes`의 log/secrets 마운트 블록 2개(주석 처리되어 있음)를 **함께** 해제하면, `start.ps1`이 `DATA_ROOT/<XXX_DIR>/log`·`secrets` 폴더를 만들고 호스트에 보존합니다.
 
 ### 4. `scripts/lib/_common.ps1` — 모든 스크립트의 공용 기반
 

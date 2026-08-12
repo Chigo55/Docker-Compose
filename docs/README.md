@@ -160,9 +160,20 @@ DB2022F_DIR=Db2022F
     <<: *mssql2022
     container_name: ${DB2022F_NAME}
     hostname: ${DB2022F_NAME}
-    ports: ["${DB2022F_PORT}:${MSSQL_PORT:-1433}"]
-    volumes: ["${DATA_ROOT}/${DB2022F_DIR}/data:/var/opt/mssql/data"]
+    ports:
+      - target: ${MSSQL_PORT:-1433}
+        published: "${DB2022F_PORT}"
+        protocol: tcp
+        mode: ingress
+    volumes:
+      - type: bind
+        source: "${DATA_ROOT}/${DB2022F_DIR}/data"
+        target: /var/opt/mssql/data
+        bind:
+          create_host_path: true
 ```
+
+`compose.yml`은 확장 문법(long syntax)으로 씁니다 — 필드 이름이 드러나고 오타가 스키마 검증에 걸립니다([ADR-0022](../.claude/adr/0022-compose-long-syntax.md)). 기존 서비스 블록을 복사해 접두사만 바꾸는 것이 가장 안전합니다.
 
 3. `.\scripts\start.ps1` — 스크립트는 `.env`를 스캔하므로 수정할 필요가 없습니다.
 
@@ -184,7 +195,7 @@ Pop-Location
 
 **백업** — `.\scripts\backup.ps1`을 쓰세요. 데이터 파일(`.mdf`)을 직접 복사하면 실행 중 인스턴스에서는 손상된 사본이 나옵니다.
 
-**마운트 범위** — 기본은 `/var/opt/mssql/data`만 마운트하므로 에러로그(`/var/opt/mssql/log`)·인증서(`/var/opt/mssql/secrets`)는 컨테이너와 함께 사라집니다. 보존하려면 `compose/.env`의 `MOUNT_LOG_SECRETS=true`와 `compose/compose.yml` 각 서비스 `volumes`의 log/secrets 마운트 2줄 주석을 **함께** 해제하세요. 그러면 `start.ps1`이 `<DATA_ROOT>/<_DIR>/log`·`secrets` 폴더를 만들어 호스트에 보존합니다.
+**마운트 범위** — 기본은 `/var/opt/mssql/data`만 마운트하므로 에러로그(`/var/opt/mssql/log`)·인증서(`/var/opt/mssql/secrets`)는 컨테이너와 함께 사라집니다. 보존하려면 `compose/.env`의 `MOUNT_LOG_SECRETS=true`와 `compose/compose.yml` 각 서비스 `volumes`의 log/secrets 마운트 블록 2개(주석 처리되어 있음)를 **함께** 해제하세요. 그러면 `start.ps1`이 `<DATA_ROOT>/<_DIR>/log`·`secrets` 폴더를 만들어 호스트에 보존합니다.
 
 **비밀번호** — `compose/.env`에 평문으로 들어갑니다. 실제 값이 든 `.env`는 `.gitignore`로 제외되어 있고, 팀에는 `compose/.env.example`만 공유합니다.
 

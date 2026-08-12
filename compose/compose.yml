@@ -17,6 +17,41 @@
 #   → 즉, 공통 설정을 한 번만 적고(&base 등) 각 서비스에서 재사용(<<: *base)합니다.
 #     여러 인스턴스가 거의 같은 설정을 공유하므로, 이렇게 하면 중복이 크게 줄어듭니다.
 #
+#  [이 파일은 Compose v2 "확장 문법(long syntax)" 으로 씁니다]
+#   같은 뜻을 한 줄로 줄여 쓰는 단축 문법(short syntax) 대신, 필드 이름을 모두 드러내는
+#   확장 문법을 씁니다. 콜론으로 이어 붙인 문자열은 순서를 외워야 하지만("호스트:컨테이너"),
+#   확장 문법은 각 값이 무엇인지 이름으로 드러나고 오타가 스키마 검증에 걸립니다.
+#
+#     ports  :  - "40000:1433"                     ← 단축
+#               - target: 1433                     ← 확장 (이 파일)
+#                 published: "40000"
+#                 protocol: tcp
+#                 mode: ingress
+#
+#       target    : 컨테이너 안쪽 포트 (SQL Server 는 1433)
+#       published : 호스트에서 접속할 포트. 포트 범위("8000-8010")와 구분하려고 따옴표로 감쌉니다.
+#       protocol  : tcp | udp
+#       mode      : ingress(기본, 호스트의 모든 인터페이스에 게시) | host
+#       (선택) name/host_ip 도 쓸 수 있으나 여기서는 쓰지 않습니다.
+#
+#     volumes:  - "C:/docker/Db2019A/data:/var/opt/mssql/data"   ← 단축
+#               - type: bind                                     ← 확장 (이 파일)
+#                 source: "C:/docker/Db2019A/data"
+#                 target: /var/opt/mssql/data
+#                 bind:
+#                   create_host_path: true
+#
+#       type     : bind(호스트 폴더를 그대로 연결) | volume | tmpfs
+#       source   : 호스트 쪽 경로. Windows 경로도 .env 에서는 슬래시(/)로 씁니다.
+#       target   : 컨테이너 안쪽 경로
+#       bind.create_host_path : 호스트 폴더가 없으면 만들지 여부(true = 단축 문법과 같은 동작).
+#                  ※ 다만 실제 기동은 start.ps1 이 먼저 폴더를 만든 뒤 진행합니다. Docker 가
+#                    빈 폴더를 만들어 버리면 기존 DB 를 못 붙기 때문입니다. (start.ps1 참고)
+#
+#   networks 도 목록(- mssql) 대신 매핑(mssql: {}) 으로 씁니다. 나중에 alias 등을 붙일 때
+#   구조를 바꾸지 않고 키만 추가하면 되기 때문입니다.
+#   environment / healthcheck.test / logging 은 이미 확장 형태(매핑·배열)로 쓰고 있습니다.
+#
 #  [예시 인스턴스] 아래는 2019 3개 + 2022 5개의 "예시"입니다. 서비스 키(db2019a 등)와
 #                 .env 의 접두사(DB2019A 등)는 반드시 짝이 맞아야 합니다.
 # ═══════════════════════════════════════════════════════════════════════════
@@ -26,7 +61,7 @@ name: ${COMPOSE_PROJECT_NAME:?}
 
 
 # ─── 공통 조각(템플릿) 정의 ──────────────────────────────────────────────────
-# 모든 컨테이너에 공통으로 들어갈 환경변수 묶음.
+# 모든 컨테이너에 공통으로 들어갈 환경변수 묶음. (KEY: VALUE 매핑 = 환경변수의 확장 문법)
 x-env: &env
   ACCEPT_EULA: ${ACCEPT_EULA:-Y}                                                  # SQL Server 사용 약관 동의 (Y)
   MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?.env 에 MSSQL_SA_PASSWORD 가 필요합니다}  # sa 계정 비밀번호 (필수)
@@ -44,17 +79,25 @@ x-healthcheck: &healthcheck
   retries: ${HEALTHCHECK_RETRIES:-10}             # 몇 번 실패하면 unhealthy 로 볼지
   start_period: ${HEALTHCHECK_START_PERIOD:-60s}  # 기동 직후 이 시간 동안은 실패를 봐줌
 
+# 컨테이너를 붙일 네트워크(확장 문법: 목록이 아니라 "네트워크 이름: 설정" 매핑).
+# 빈 설정({})은 "추가 옵션 없이 이 네트워크에 붙인다"는 뜻입니다.
+x-networks: &networks
+  mssql: {}
+
+# 로그 파일이 무한정 커지지 않게 제한하는 드라이버 설정.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: ${LOG_MAX_SIZE:-10m}                # 로그 파일 한 개 최대 크기
+    max-file: ${LOG_MAX_FILE:-3}                  # 로그 파일 최대 개수
+
 # 버전(2019/2022)과 상관없이 모든 서비스가 공유하는 뼈대.
 x-base: &base
   restart: ${RESTART_POLICY:-always}              # 컨테이너가 죽으면 자동 재시작
   stop_grace_period: ${STOP_GRACE_PERIOD:-60s}    # 정지 시 정상 종료를 기다리는 시간
   environment: *env                               # 위에서 만든 공통 환경변수(&env) 사용
-  networks: [mssql]                               # 아래 정의한 mssql 네트워크에 연결
-  logging:                                        # 로그 파일이 무한정 커지지 않게 제한
-    driver: json-file
-    options:
-      max-size: ${LOG_MAX_SIZE:-10m}              # 로그 파일 한 개 최대 크기
-      max-file: ${LOG_MAX_FILE:-3}                # 로그 파일 최대 개수
+  networks: *networks                             # 위에서 만든 네트워크 매핑(&networks) 사용
+  logging: *logging                               # 위에서 만든 로깅 설정(&logging) 사용
 
 # SQL Server 2019 전용 조각. (base 를 물려받고, 이미지/헬스체크만 2019 것으로)
 x-mssql-2019: &mssql2019
@@ -78,10 +121,11 @@ x-mssql-2022: &mssql2022
 # 각 서비스는 위 조각을 <<: 로 가져오고, 자기만의 이름/포트/데이터 폴더만 지정합니다.
 #   container_name : 컨테이너 이름
 #   hostname       : 컨테이너 내부에서 서로 부를 때 쓰는 이름
-#   ports          : "호스트포트:컨테이너포트" — 호스트의 포트로 접속하면 내부 1433 으로 연결
-#   volumes        : "호스트폴더:컨테이너폴더" — 데이터를 호스트에 저장해 컨테이너가 사라져도 보존
+#   ports          : 확장 문법 — target(컨테이너 1433) 을 published(호스트 포트) 로 게시
+#   volumes        : 확장 문법 — type: bind 로 호스트 폴더를 컨테이너 폴더에 연결.
+#                    데이터를 호스트에 저장하므로 컨테이너가 사라져도 보존됩니다.
 #                    기본은 data 만 보존합니다. errorlog(/var/opt/mssql/log)·secrets 도 호스트에
-#                    남기려면 각 서비스 volumes 의 log/secrets 주석 두 줄과 .env 의
+#                    남기려면 각 서비스 volumes 의 주석 처리된 두 블록과 .env 의
 #                    MOUNT_LOG_SECRETS=true 를 함께 켜세요(start.ps1 이 해당 폴더를 만듭니다).
 services:
 
@@ -90,90 +134,218 @@ services:
     <<: *mssql2019
     container_name: ${DB2019A_NAME}
     hostname: ${DB2019A_NAME}
-    ports: ["${DB2019A_PORT}:${MSSQL_PORT:-1433}"]
+    ports:
+      - target: ${MSSQL_PORT:-1433}
+        published: "${DB2019A_PORT}"
+        protocol: tcp
+        mode: ingress
     volumes:
-      - "${DATA_ROOT}/${DB2019A_DIR}/data:/var/opt/mssql/data"
-      # 선택(errorlog·secrets 보존): 아래 2줄 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
-      # - "${DATA_ROOT}/${DB2019A_DIR}/log:/var/opt/mssql/log"
-      # - "${DATA_ROOT}/${DB2019A_DIR}/secrets:/var/opt/mssql/secrets"
+      - type: bind
+        source: "${DATA_ROOT}/${DB2019A_DIR}/data"
+        target: /var/opt/mssql/data
+        bind:
+          create_host_path: true
+      # 선택(errorlog·secrets 보존): 아래 두 블록 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
+      # - type: bind
+      #   source: "${DATA_ROOT}/${DB2019A_DIR}/log"
+      #   target: /var/opt/mssql/log
+      #   bind:
+      #     create_host_path: true
+      # - type: bind
+      #   source: "${DATA_ROOT}/${DB2019A_DIR}/secrets"
+      #   target: /var/opt/mssql/secrets
+      #   bind:
+      #     create_host_path: true
 
   db2019b:
     <<: *mssql2019
     container_name: ${DB2019B_NAME}
     hostname: ${DB2019B_NAME}
-    ports: ["${DB2019B_PORT}:${MSSQL_PORT:-1433}"]
+    ports:
+      - target: ${MSSQL_PORT:-1433}
+        published: "${DB2019B_PORT}"
+        protocol: tcp
+        mode: ingress
     volumes:
-      - "${DATA_ROOT}/${DB2019B_DIR}/data:/var/opt/mssql/data"
-      # 선택(errorlog·secrets 보존): 아래 2줄 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
-      # - "${DATA_ROOT}/${DB2019B_DIR}/log:/var/opt/mssql/log"
-      # - "${DATA_ROOT}/${DB2019B_DIR}/secrets:/var/opt/mssql/secrets"
+      - type: bind
+        source: "${DATA_ROOT}/${DB2019B_DIR}/data"
+        target: /var/opt/mssql/data
+        bind:
+          create_host_path: true
+      # 선택(errorlog·secrets 보존): 아래 두 블록 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
+      # - type: bind
+      #   source: "${DATA_ROOT}/${DB2019B_DIR}/log"
+      #   target: /var/opt/mssql/log
+      #   bind:
+      #     create_host_path: true
+      # - type: bind
+      #   source: "${DATA_ROOT}/${DB2019B_DIR}/secrets"
+      #   target: /var/opt/mssql/secrets
+      #   bind:
+      #     create_host_path: true
 
   db2019c:
     <<: *mssql2019
     container_name: ${DB2019C_NAME}
     hostname: ${DB2019C_NAME}
-    ports: ["${DB2019C_PORT}:${MSSQL_PORT:-1433}"]
+    ports:
+      - target: ${MSSQL_PORT:-1433}
+        published: "${DB2019C_PORT}"
+        protocol: tcp
+        mode: ingress
     volumes:
-      - "${DATA_ROOT}/${DB2019C_DIR}/data:/var/opt/mssql/data"
-      # 선택(errorlog·secrets 보존): 아래 2줄 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
-      # - "${DATA_ROOT}/${DB2019C_DIR}/log:/var/opt/mssql/log"
-      # - "${DATA_ROOT}/${DB2019C_DIR}/secrets:/var/opt/mssql/secrets"
+      - type: bind
+        source: "${DATA_ROOT}/${DB2019C_DIR}/data"
+        target: /var/opt/mssql/data
+        bind:
+          create_host_path: true
+      # 선택(errorlog·secrets 보존): 아래 두 블록 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
+      # - type: bind
+      #   source: "${DATA_ROOT}/${DB2019C_DIR}/log"
+      #   target: /var/opt/mssql/log
+      #   bind:
+      #     create_host_path: true
+      # - type: bind
+      #   source: "${DATA_ROOT}/${DB2019C_DIR}/secrets"
+      #   target: /var/opt/mssql/secrets
+      #   bind:
+      #     create_host_path: true
 
   # ═══ SQL Server 2022 (예시 5개) ═══
   db2022a:
     <<: *mssql2022
     container_name: ${DB2022A_NAME}
     hostname: ${DB2022A_NAME}
-    ports: ["${DB2022A_PORT}:${MSSQL_PORT:-1433}"]
+    ports:
+      - target: ${MSSQL_PORT:-1433}
+        published: "${DB2022A_PORT}"
+        protocol: tcp
+        mode: ingress
     volumes:
-      - "${DATA_ROOT}/${DB2022A_DIR}/data:/var/opt/mssql/data"
-      # 선택(errorlog·secrets 보존): 아래 2줄 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
-      # - "${DATA_ROOT}/${DB2022A_DIR}/log:/var/opt/mssql/log"
-      # - "${DATA_ROOT}/${DB2022A_DIR}/secrets:/var/opt/mssql/secrets"
+      - type: bind
+        source: "${DATA_ROOT}/${DB2022A_DIR}/data"
+        target: /var/opt/mssql/data
+        bind:
+          create_host_path: true
+      # 선택(errorlog·secrets 보존): 아래 두 블록 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
+      # - type: bind
+      #   source: "${DATA_ROOT}/${DB2022A_DIR}/log"
+      #   target: /var/opt/mssql/log
+      #   bind:
+      #     create_host_path: true
+      # - type: bind
+      #   source: "${DATA_ROOT}/${DB2022A_DIR}/secrets"
+      #   target: /var/opt/mssql/secrets
+      #   bind:
+      #     create_host_path: true
 
   db2022b:
     <<: *mssql2022
     container_name: ${DB2022B_NAME}
     hostname: ${DB2022B_NAME}
-    ports: ["${DB2022B_PORT}:${MSSQL_PORT:-1433}"]
+    ports:
+      - target: ${MSSQL_PORT:-1433}
+        published: "${DB2022B_PORT}"
+        protocol: tcp
+        mode: ingress
     volumes:
-      - "${DATA_ROOT}/${DB2022B_DIR}/data:/var/opt/mssql/data"
-      # 선택(errorlog·secrets 보존): 아래 2줄 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
-      # - "${DATA_ROOT}/${DB2022B_DIR}/log:/var/opt/mssql/log"
-      # - "${DATA_ROOT}/${DB2022B_DIR}/secrets:/var/opt/mssql/secrets"
+      - type: bind
+        source: "${DATA_ROOT}/${DB2022B_DIR}/data"
+        target: /var/opt/mssql/data
+        bind:
+          create_host_path: true
+      # 선택(errorlog·secrets 보존): 아래 두 블록 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
+      # - type: bind
+      #   source: "${DATA_ROOT}/${DB2022B_DIR}/log"
+      #   target: /var/opt/mssql/log
+      #   bind:
+      #     create_host_path: true
+      # - type: bind
+      #   source: "${DATA_ROOT}/${DB2022B_DIR}/secrets"
+      #   target: /var/opt/mssql/secrets
+      #   bind:
+      #     create_host_path: true
 
   db2022c:
     <<: *mssql2022
     container_name: ${DB2022C_NAME}
     hostname: ${DB2022C_NAME}
-    ports: ["${DB2022C_PORT}:${MSSQL_PORT:-1433}"]
+    ports:
+      - target: ${MSSQL_PORT:-1433}
+        published: "${DB2022C_PORT}"
+        protocol: tcp
+        mode: ingress
     volumes:
-      - "${DATA_ROOT}/${DB2022C_DIR}/data:/var/opt/mssql/data"
-      # 선택(errorlog·secrets 보존): 아래 2줄 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
-      # - "${DATA_ROOT}/${DB2022C_DIR}/log:/var/opt/mssql/log"
-      # - "${DATA_ROOT}/${DB2022C_DIR}/secrets:/var/opt/mssql/secrets"
+      - type: bind
+        source: "${DATA_ROOT}/${DB2022C_DIR}/data"
+        target: /var/opt/mssql/data
+        bind:
+          create_host_path: true
+      # 선택(errorlog·secrets 보존): 아래 두 블록 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
+      # - type: bind
+      #   source: "${DATA_ROOT}/${DB2022C_DIR}/log"
+      #   target: /var/opt/mssql/log
+      #   bind:
+      #     create_host_path: true
+      # - type: bind
+      #   source: "${DATA_ROOT}/${DB2022C_DIR}/secrets"
+      #   target: /var/opt/mssql/secrets
+      #   bind:
+      #     create_host_path: true
 
   db2022d:
     <<: *mssql2022
     container_name: ${DB2022D_NAME}
     hostname: ${DB2022D_NAME}
-    ports: ["${DB2022D_PORT}:${MSSQL_PORT:-1433}"]
+    ports:
+      - target: ${MSSQL_PORT:-1433}
+        published: "${DB2022D_PORT}"
+        protocol: tcp
+        mode: ingress
     volumes:
-      - "${DATA_ROOT}/${DB2022D_DIR}/data:/var/opt/mssql/data"
-      # 선택(errorlog·secrets 보존): 아래 2줄 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
-      # - "${DATA_ROOT}/${DB2022D_DIR}/log:/var/opt/mssql/log"
-      # - "${DATA_ROOT}/${DB2022D_DIR}/secrets:/var/opt/mssql/secrets"
+      - type: bind
+        source: "${DATA_ROOT}/${DB2022D_DIR}/data"
+        target: /var/opt/mssql/data
+        bind:
+          create_host_path: true
+      # 선택(errorlog·secrets 보존): 아래 두 블록 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
+      # - type: bind
+      #   source: "${DATA_ROOT}/${DB2022D_DIR}/log"
+      #   target: /var/opt/mssql/log
+      #   bind:
+      #     create_host_path: true
+      # - type: bind
+      #   source: "${DATA_ROOT}/${DB2022D_DIR}/secrets"
+      #   target: /var/opt/mssql/secrets
+      #   bind:
+      #     create_host_path: true
 
   db2022e:
     <<: *mssql2022
     container_name: ${DB2022E_NAME}
     hostname: ${DB2022E_NAME}
-    ports: ["${DB2022E_PORT}:${MSSQL_PORT:-1433}"]
+    ports:
+      - target: ${MSSQL_PORT:-1433}
+        published: "${DB2022E_PORT}"
+        protocol: tcp
+        mode: ingress
     volumes:
-      - "${DATA_ROOT}/${DB2022E_DIR}/data:/var/opt/mssql/data"
-      # 선택(errorlog·secrets 보존): 아래 2줄 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
-      # - "${DATA_ROOT}/${DB2022E_DIR}/log:/var/opt/mssql/log"
-      # - "${DATA_ROOT}/${DB2022E_DIR}/secrets:/var/opt/mssql/secrets"
+      - type: bind
+        source: "${DATA_ROOT}/${DB2022E_DIR}/data"
+        target: /var/opt/mssql/data
+        bind:
+          create_host_path: true
+      # 선택(errorlog·secrets 보존): 아래 두 블록 + .env 의 MOUNT_LOG_SECRETS=true 를 함께 켜세요.
+      # - type: bind
+      #   source: "${DATA_ROOT}/${DB2022E_DIR}/log"
+      #   target: /var/opt/mssql/log
+      #   bind:
+      #     create_host_path: true
+      # - type: bind
+      #   source: "${DATA_ROOT}/${DB2022E_DIR}/secrets"
+      #   target: /var/opt/mssql/secrets
+      #   bind:
+      #     create_host_path: true
 
 
 # ─── 네트워크 ────────────────────────────────────────────────────────────────
