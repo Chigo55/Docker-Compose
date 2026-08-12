@@ -10,14 +10,21 @@ summary: "작업 흐름 — worktree·PR·CI 게이트, 로드맵/버그는 GitH
 않는다([ADR-0015](../adr/0015-worktree-pr-github-actions.md)).
 
 ```powershell
-git worktree add -b <type>/<주제> ..\wt-<주제> main   # 브랜치 + 격리 작업 공간 생성
+git fetch origin main                                        # ★ 먼저 최신 main 을 받는다
+git worktree add -b <type>/<주제> ..\wt-<주제> origin/main   # 브랜치 + 격리 작업 공간 생성
 # ...편집...
-.\scripts\check.ps1 -Test                              # 커밋 전 검증(린트 + doctor + 테스트)
-git push -u origin <type>/<주제>                       # push
-gh pr create --fill --base main                        # PR 로만 병합
-git worktree remove ..\wt-<주제>                       # 병합 후 정리
+.\scripts\check.ps1 -Test                                    # 커밋 전 검증(린트 + doctor + 테스트)
+git push -u origin <type>/<주제>                             # push
+gh pr create --fill --base main                              # PR 로만 병합
+git worktree remove ..\wt-<주제>                             # 병합 후 정리
 ```
 
+- **브랜치는 로컬 `main` 이 아니라 fetch 한 `origin/main` 에서 딴다.** 로컬 main 은 마지막 pull
+  시점에 멈춰 있어서, 그 사이 병합된 PR 을 못 본 채로 작업하게 된다.
+  > ⚠️ **번호로 이름 짓는 파일**(`.claude/adr/NNNN-*.md`)이 특히 위험하다. stale 한 main 에서
+  > 브랜치를 따면 이미 쓰인 번호를 다시 집는데, **파일명이 다르면 git 도 CI 도 충돌을 잡지
+  > 못한다** — 병합되고 나서야 같은 번호 ADR 이 둘인 걸 발견한다([#55](https://github.com/Chigo55/Docker-Compose/pull/55)→[#56](https://github.com/Chigo55/Docker-Compose/pull/56) 이 이 사고였다).
+  > 새 ADR 을 만들기 전 fetch 직후 `ls .claude\adr\` 로 다음 번호를 다시 확인한다.
 - **main 직접 push 는 서버가 거부한다.** 관례가 아니라 Ruleset `main protection` 으로 강제된다
   (PR 필수 · force push/삭제 금지 · **bypass 없음 — owner 도 예외 아님**). [ADR-0017](../adr/0017-ruleset-enforced-main-protection.md)
 - **GitHub Actions CI**(`.github/workflows/ci.yml`)가 PR·push 마다 `check.ps1 -Test` 를
