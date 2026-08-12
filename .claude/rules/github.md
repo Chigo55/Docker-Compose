@@ -70,7 +70,14 @@ summary: "GitHub 기능 지도 — ruleset·Actions 권한·dependabot·Wiki·Se
   Priority · Effort · Type. 완료는 이슈 close → Status Done.
 - **저장소 안에 로드맵 문서는 없다.** 동결 사본이던 `docs/ROADMAP.md` 는 실제와 어긋나 삭제했다
   ([ADR-0019](../adr/0019-remove-frozen-roadmap.md)). 초기 계획 원문이 필요하면 `git show v1.1.1:docs/ROADMAP.md`.
-- 마일스톤은 쓰지 않는다(0건).
+- **마일스톤은 "여러 이슈가 모여야 끝나는 하나의 목표" 를 묶을 때 쓴다**([ADR-0024](../adr/0024-milestones-for-cross-cutting-goals.md)).
+  Project 가 **항목 단위 상태**(Status/Priority/Effort/Type)의 단일 소스라면, 마일스톤은 **공통
+  완료 기준을 공유하는 이슈 묶음의 진척률(N/M)** 이다. 축이 다르니 서로 대체하지 않고,
+  **로드맵의 단일 소스는 여전히 Project** 다.
+  - 열려 있는 마일스톤: [#1 크로스 플랫폼 지원 (Windows · macOS · Linux)](https://github.com/Chigo55/Docker-Compose/milestone/1)
+    — 완료 기준은 마일스톤 설명에 있다(소속 이슈가 복사하지 않는다).
+  - **만들지 않는 경우**: 단일 이슈로 끝나는 일 · 완료 기준 없는 주제 묶음(그건 라벨이 한다) ·
+    릴리스 버전 통(노트는 PR 라벨에서 자동 생성 — [ADR-0020](../adr/0020-generate-release-notes-from-prs.md)).
 
 ## Wiki
 
