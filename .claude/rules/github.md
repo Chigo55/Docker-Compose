@@ -10,6 +10,13 @@ summary: "GitHub 기능 지도 — ruleset·Actions 권한·dependabot·Wiki·Se
 > 이 문서는 **현황 기록**이다. 설정을 바꿨다면 여기도 같이 고친다 — 안 그러면 문서가 아니라
 > 설정이 단일 소스가 되고, 다음 사람은 UI 를 뒤져야 한다([ADR-0016](../adr/0016-track-in-github-not-docs.md)).
 
+> **운영 절차는 여기가 아니라 [skills/github-ops](../skills/github-ops/SKILL.md) 에 있다**([ADR-0025](../adr/0025-github-ops-as-skill.md)).
+> 이 문서는 **현황**("무엇이 켜져 있는가"), 스킬은 **절차**("무엇을 어떤 순서로 하는가"),
+> ADR 은 **근거**("왜 그렇게 정했는가")를 담는다. 이슈 트리아지 · 라벨 정리 · Project 필드 입력 ·
+> 마일스톤 · 릴리스 · 설정 감사는 스킬로 간다. 특히 스킬의
+> [감사 절차](../skills/github-ops/references/audit.md)는 **이 문서와 원격 설정의 드리프트를 잡는 것**이
+> 목적이라, 설정 변경 후 여기를 갱신하는 일도 그 절차에 들어 있다.
+
 ## 병합을 막는 것 — Ruleset `main protection`
 
 **main 은 서버에서 보호된다**([ADR-0017](../adr/0017-ruleset-enforced-main-protection.md)). 관례가 아니라 강제다.
