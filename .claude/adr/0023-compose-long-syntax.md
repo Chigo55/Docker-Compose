@@ -2,7 +2,7 @@
 summary: "ports·volumes·networks 를 확장 문법으로"
 ---
 
-# ADR-0022: compose.yml 은 Compose v2 확장 문법(long syntax)으로 쓴다
+# ADR-0023: compose.yml 은 Compose v2 확장 문법(long syntax)으로 쓴다
 
 - 상태: Accepted
 - 관련: [ADR-0001](0001-env-single-source-of-truth.md), [ADR-0003](0003-yaml-anchors-for-reuse.md), [ADR-0004](0004-host-bind-mount-for-data.md), `compose/compose.yml`

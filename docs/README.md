@@ -173,7 +173,7 @@ DB2022F_DIR=Db2022F
           create_host_path: true
 ```
 
-`compose.yml`은 확장 문법(long syntax)으로 씁니다 — 필드 이름이 드러나고 오타가 스키마 검증에 걸립니다([ADR-0022](../.claude/adr/0022-compose-long-syntax.md)). 기존 서비스 블록을 복사해 접두사만 바꾸는 것이 가장 안전합니다.
+`compose.yml`은 확장 문법(long syntax)으로 씁니다 — 필드 이름이 드러나고 오타가 스키마 검증에 걸립니다([ADR-0023](../.claude/adr/0023-compose-long-syntax.md)). 기존 서비스 블록을 복사해 접두사만 바꾸는 것이 가장 안전합니다.
 
 3. `.\scripts\start.ps1` — 스크립트는 `.env`를 스캔하므로 수정할 필요가 없습니다.
 
