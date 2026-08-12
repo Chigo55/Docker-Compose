@@ -20,6 +20,8 @@ clone 해서는 보이지 않지만 작업을 막는 것들이 있습니다. 전
 - **main 은 Ruleset `main protection` 으로 서버에서 보호됩니다**(PR 필수 · force push/삭제 금지 · **bypass 없음**). 직접 push 는 거부됩니다 — 관례가 아닙니다([ADR-0017](.claude/adr/0017-ruleset-enforced-main-protection.md)).
 - **Actions 의 기본 워크플로 권한이 `read`** 입니다. 워크플로가 PR·이슈에 무언가를 쓰려면 파일에서 `permissions:`를 직접 올려야 하고, 안 올리면 실패 없이 **조용히 아무것도 안 남깁니다**(이슈 #27·#30의 원인).
 
+**GitHub 을 관리할 때(이슈 트리아지 · 라벨 · Project #4 · 마일스톤 · 서브이슈 · 릴리스 · 설정 감사)는 `github-ops` 스킬로 들어갑니다** — 현황 브리핑 → 대화로 결정 → 승인 후 일괄 실행 순서입니다([.claude/skills/github-ops/SKILL.md](.claude/skills/github-ops/SKILL.md), [ADR-0025](.claude/adr/0025-github-ops-as-skill.md)). `gh` 명령을 즉흥적으로 조합하면 **실패로 드러나지 않는 단계**가 빠집니다: Project 등록은 이슈 생성과 별개이고, 이슈 close 는 Project Status 를 옮기지 않으며, 릴리스 노트는 이슈 라벨이 아니라 **PR 라벨**만 읽습니다.
+
 학습 자료(Docker/SQL Server 개념)는 저장소가 아니라 [Wiki](https://github.com/Chigo55/Docker-Compose/wiki)에 둡니다. 판별 기준은 "코드가 바뀌면 같이 늙는가" 하나입니다 — 사용법·규약·ADR 은 저장소, 개념은 Wiki([ADR-0018](.claude/adr/0018-wiki-for-learning-repo-for-code.md)). **Wiki 에 스크립트 사용법을 복사하지 마세요**(단일 소스는 `docs/scripts/<name>.md`, Wiki 는 링크만).
 
 ## 리포지토리 구조
@@ -49,6 +51,7 @@ docs/
   SECURITY.md       취약점 신고 경로 · 지원 버전 · 의도된 설계(오신고 방지)
   dependabot.yml    github-actions 버전 추적 (weekly)
 .claude/            설계 문서 (adr/, rules/, CONVENTIONS.md) — 인덱스 표는 생성물(커밋 안 함, ADR-0021)
+  skills/github-ops/  GitHub 운영 스킬 — 진입점 SKILL.md + references/(트리아지·계획·릴리스·감사·레퍼런스), ADR-0025
 CLAUDE.md           이 파일
 ```
 
